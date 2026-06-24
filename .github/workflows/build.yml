@@ -12,9 +12,10 @@ jobs:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.22.2'
           channel: stable
       - run: flutter config --enable-windows-desktop
+      # platforma fayllarini joriy Flutter'ga moslab qayta yaratamiz (VS/CMake migratsiya)
+      - run: flutter create --platforms=windows --project-name aloqa .
       - run: flutter pub get
       - run: flutter build windows --release --dart-define=ALOQA_API_BASE=https://api.aloqa.ucms.uz/api/v1 --dart-define=ALOQA_LIVEKIT_URL=wss://rtc.aloqa.ucms.uz
       - name: Zip
@@ -30,9 +31,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.22.2'
           channel: stable
       - run: flutter config --enable-macos-desktop
+      - run: flutter create --platforms=macos --project-name aloqa .
       - run: flutter pub get
       - run: flutter build macos --release --dart-define=ALOQA_API_BASE=https://api.aloqa.ucms.uz/api/v1 --dart-define=ALOQA_LIVEKIT_URL=wss://rtc.aloqa.ucms.uz
       - name: DMG

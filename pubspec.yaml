@@ -52,10 +52,9 @@ dependencies:
   # 2.4.0+ needs Dart 3.6. PIN 2.2.6 — do not bump on Flutter 3.22.
   livekit_client: 2.2.6
 
-  # Push notifications (FCM). Firebase 4.8+/16.3+ require Flutter 3.27 — PIN the
-  # exact versions that resolve on Flutter 3.22.2 / Dart 3.4.3 (caret would drift).
-  firebase_core: 4.7.0
-  firebase_messaging: 16.2.0
+  # NOTE: firebase_core/firebase_messaging desktop (win/mac) buildni buzadi (pod/cmake)
+  # va hozir Flutter kodida ishlatilmaydi → CI (win/mac) repodan olib tashlandi.
+  # Mobil push qo'shilganda asosiy repoda qaytariladi.
 
 dev_dependencies:
   flutter_test:

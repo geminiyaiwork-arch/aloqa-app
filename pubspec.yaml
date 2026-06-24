@@ -1,0 +1,108 @@
+name: aloqa
+description: "ALOQA — video aloqa super-platformasi"
+# The following line prevents the package from being accidentally published to
+# pub.dev using `flutter pub publish`. This is preferred for private packages.
+publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+
+# Version: 1.0.0+1 (kept per F0). Bump together with web/admin when releasing.
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.4.3 <4.0.0'
+
+# Pinned for Flutter 3.22.2 / Dart 3.4.3 (stable). Many newer package majors
+# require Dart 3.5+/Flutter 3.24+ and WILL FAIL to resolve — do not bump blindly.
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.6
+
+  # State management
+  flutter_riverpod: ^2.5.1
+
+  # Routing
+  go_router: ^14.2.7
+
+  # Networking
+  dio: ^5.5.0
+
+  # Auth
+  google_sign_in: ^6.2.1
+
+  # Storage
+  shared_preferences: ^2.2.3
+  flutter_secure_storage: ^9.2.2
+
+  # UI / media helpers
+  cached_network_image: ^3.3.1
+
+  # i18n / formatting
+  intl: ^0.19.0
+
+  # Connectivity — 6.0.x resolves on Dart 3.4.3 (needs only SDK>=3.2/Flutter>=3.7);
+  # required by livekit_client 2.2.6. Pinned <6.1 to stay deterministic.
+  connectivity_plus: ^6.0.2
+
+  # WebRTC — PIN 0.11.7 (1.x = kIsWasm, needs Flutter 3.24+)
+  flutter_webrtc: 0.11.7
+
+  # LiveKit SFU client — 2.2.6 is the LAST version that targets Dart 3.3+ (we have
+  # 3.4.3) AND uses flutter_webrtc ^0.11.7. 2.2.7+ jumps to webrtc 0.12 (kIsWasm),
+  # 2.4.0+ needs Dart 3.6. PIN 2.2.6 — do not bump on Flutter 3.22.
+  livekit_client: 2.2.6
+
+  # Push notifications (FCM). Firebase 4.8+/16.3+ require Flutter 3.27 — PIN the
+  # exact versions that resolve on Flutter 3.22.2 / Dart 3.4.3 (caret would drift).
+  firebase_core: 4.7.0
+  firebase_messaging: 16.2.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^3.0.0
+
+  # Branding
+  flutter_launcher_icons: ^0.13.1
+  flutter_native_splash: ^2.4.1
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/
+
+# ---------------------------------------------------------------------------
+# flutter_launcher_icons — ALOQA logo on every platform icon.
+# web is SKIPPED: a separate React app owns web/; we must not overwrite it.
+# ---------------------------------------------------------------------------
+flutter_launcher_icons:
+  image_path: "assets/images/logo.png"
+  android: true
+  ios: true
+  remove_alpha_ios: true
+  min_sdk_android: 23
+  web:
+    generate: false
+  windows:
+    generate: true
+    image_path: "assets/images/logo.png"
+    icon_size: 256
+  macos:
+    generate: true
+    image_path: "assets/images/logo.png"
+
+# ---------------------------------------------------------------------------
+# flutter_native_splash — ALOQA splash (logo on brand indigo background).
+# web is SKIPPED (separate React app owns web/).
+# ---------------------------------------------------------------------------
+flutter_native_splash:
+  color: "#ffffff"
+  image: "assets/images/splash.png"
+  android: true
+  ios: true
+  web: false
+  android_12:
+    image: "assets/images/splash.png"
+    color: "#ffffff"

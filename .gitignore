@@ -1,0 +1,13 @@
+build/
+.dart_tool/
+.packages
+.flutter-plugins
+.flutter-plugins-dependencies
+ios/Pods/
+macos/Pods/
+ios/.symlinks/
+macos/Flutter/ephemeral/
+linux/flutter/ephemeral/
+windows/flutter/ephemeral/
+*.iml
+.idea/

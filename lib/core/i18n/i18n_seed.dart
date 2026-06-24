@@ -1,0 +1,93 @@
+/// ALOQA — bundled i18n seed (uz + en) so the UI renders offline / on first run
+/// BEFORE the OTA bundles are fetched (TZ §5.5 "offline rejim").
+///
+/// Keys use the TZ namespace convention "<area>.<name>". Server-published
+/// bundles override these at runtime.
+library;
+
+const Map<String, Map<String, String>> kI18nSeed = {
+  'uz': {
+    'app.name': 'ALOQA',
+    'app.tagline': 'Video aloqa super-platformasi',
+    'common.continue': 'Davom etish',
+    'common.cancel': 'Bekor qilish',
+    'common.retry': 'Qayta urinish',
+    'common.loading': 'Yuklanmoqda...',
+    'common.error': 'Xatolik yuz berdi',
+    'onboarding.title': 'ALOQA bilan ulanib qoling',
+    'onboarding.subtitle':
+        'Video qo\'ng\'iroq, konferensiya va vebinar — bir joyda.',
+    'onboarding.start': 'Boshlash',
+    'auth.login': 'Kirish',
+    'auth.register': 'Ro\'yxatdan o\'tish',
+    'auth.email': 'Email',
+    'auth.password': 'Parol',
+    'auth.google': 'Google orqali kirish',
+    'auth.login_button': 'Kirish',
+    'home.new_meeting': 'Yangi uchrashuv',
+    'home.join': 'Qo\'shilish',
+    'home.schedule': 'Rejalashtirish',
+    'home.meetings': 'Uchrashuvlar',
+    'home.empty': 'Hozircha uchrashuv yo\'q',
+    'lobby.title': 'Uchrashuvga tayyorgarlik',
+    'lobby.your_name': 'Ismingiz',
+    'lobby.join_button': 'Qo\'shilish',
+    'lobby.mic': 'Mikrofon',
+    'lobby.camera': 'Kamera',
+    'conference.participants': 'Ishtirokchilar',
+    'conference.leave': 'Chiqish',
+    'conference.mute': 'Ovozsiz',
+    'conference.unmute': 'Ovozli',
+    'conference.share': 'Ekran ulashish',
+    'settings.title': 'Sozlamalar',
+    'settings.language': 'Til',
+    'settings.profile': 'Profil',
+    'settings.logout': 'Chiqish',
+    'profile.title': 'Profil',
+  },
+  'en': {
+    'app.name': 'ALOQA',
+    'app.tagline': 'Video communication super-platform',
+    'common.continue': 'Continue',
+    'common.cancel': 'Cancel',
+    'common.retry': 'Retry',
+    'common.loading': 'Loading...',
+    'common.error': 'Something went wrong',
+    'onboarding.title': 'Stay connected with ALOQA',
+    'onboarding.subtitle':
+        'Video calls, conferences and webinars — all in one place.',
+    'onboarding.start': 'Get started',
+    'auth.login': 'Sign in',
+    'auth.register': 'Sign up',
+    'auth.email': 'Email',
+    'auth.password': 'Password',
+    'auth.google': 'Sign in with Google',
+    'auth.login_button': 'Sign in',
+    'home.new_meeting': 'New meeting',
+    'home.join': 'Join',
+    'home.schedule': 'Schedule',
+    'home.meetings': 'Meetings',
+    'home.empty': 'No meetings yet',
+    'lobby.title': 'Get ready to join',
+    'lobby.your_name': 'Your name',
+    'lobby.join_button': 'Join',
+    'lobby.mic': 'Microphone',
+    'lobby.camera': 'Camera',
+    'conference.participants': 'Participants',
+    'conference.leave': 'Leave',
+    'conference.mute': 'Mute',
+    'conference.unmute': 'Unmute',
+    'conference.share': 'Share screen',
+    'settings.title': 'Settings',
+    'settings.language': 'Language',
+    'settings.profile': 'Profile',
+    'settings.logout': 'Sign out',
+    'profile.title': 'Profile',
+  },
+};
+
+/// Native display names for the seed languages (shown before manifest loads).
+const Map<String, String> kI18nSeedNames = {
+  'uz': 'O\'zbekcha',
+  'en': 'English',
+};

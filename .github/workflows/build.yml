@@ -7,7 +7,7 @@ on:
 
 jobs:
   windows:
-    runs-on: windows-latest
+    runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
@@ -36,6 +36,10 @@ jobs:
           channel: stable
       - run: flutter config --enable-macos-desktop
       - run: flutter create --platforms=macos --project-name aloqa .
+      # google_sign_in macOS 10.15 talab qiladi — deployment target'ni ko'taramiz
+      - run: |
+          sed -i '' -E 's/MACOSX_DEPLOYMENT_TARGET = [0-9.]+;/MACOSX_DEPLOYMENT_TARGET = 10.15;/g' macos/Runner.xcodeproj/project.pbxproj
+          sed -i '' -E "s/^[# ]*platform :osx.*/platform :osx, '10.15'/" macos/Podfile || true
       - run: flutter pub get
       - run: flutter build macos --release --dart-define=ALOQA_API_BASE=https://api.aloqa.ucms.uz/api/v1 --dart-define=ALOQA_LIVEKIT_URL=wss://rtc.aloqa.ucms.uz
       - name: DMG

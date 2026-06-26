@@ -3,8 +3,10 @@
 ;   (SrcDir default = Flutter Windows release bundle)
 ; Lokal (Wine): ISCC.exe /DSrcDir=Z:\tmp\...\Release /DAppVer=<ver> /OZ:\tmp\... aloqa.iss
 
+; SrcDir = Flutter Windows release bundle. Nisbiy yo'l SHU .iss fayl joylashuviga
+; (installer\windows\) nisbatan hisoblanadi → repo ildiziga 2 pog'ona ko'tarilamiz.
 #ifndef SrcDir
-  #define SrcDir "build\windows\x64\runner\Release"
+  #define SrcDir "..\..\build\windows\x64\runner\Release"
 #endif
 #ifndef AppVer
   #define AppVer "1.3.9"

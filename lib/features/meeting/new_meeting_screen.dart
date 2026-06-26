@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -57,11 +58,17 @@ class _NewMeetingScreenState extends ConsumerState<NewMeetingScreen> {
         _created = meeting;
         _busy = false;
       });
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
+      // Server xabarini ko'rsatamiz (masalan tarif limiti)
+      String msg = 'Xatolik yuz berdi';
+      if (e is DioException && e.response?.data is Map) {
+        final m = (e.response!.data as Map)['message'];
+        if (m != null) msg = m.toString();
+      }
       setState(() {
         _busy = false;
-        _error = 'Xatolik yuz berdi';
+        _error = msg;
       });
     }
   }

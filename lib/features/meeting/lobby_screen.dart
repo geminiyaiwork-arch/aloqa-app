@@ -10,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 
 import '../../core/i18n/i18n_service.dart';
+import '../auth/auth_provider.dart';
 import 'conference_screen.dart';
 import 'meeting_models.dart';
 
@@ -34,6 +35,11 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
   @override
   void initState() {
     super.initState();
+    // Ismni ro'yxatdagi nom bilan to'ldiramiz (tarifsizlar o'zgartira olmaydi).
+    final user = ref.read(authProvider).user;
+    if (user != null && _name.text.isEmpty) {
+      _name.text = user.name;
+    }
     _initPreview();
   }
 
@@ -156,13 +162,26 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                 ],
               ),
               const SizedBox(height: 16),
-              TextField(
-                controller: _name,
-                decoration: InputDecoration(
-                  labelText: ref.t('lobby.your_name'),
-                  prefixIcon: const Icon(Icons.person_outline),
-                ),
-              ),
+              Builder(builder: (_) {
+                final u = ref.watch(authProvider).user;
+                final hasPlan =
+                    (u?.planId != null && u!.planId!.trim().isNotEmpty);
+                return TextField(
+                  controller: _name,
+                  readOnly: !hasPlan,
+                  decoration: InputDecoration(
+                    labelText: ref.t('lobby.your_name'),
+                    prefixIcon: const Icon(Icons.person_outline),
+                    suffixIcon: hasPlan
+                        ? null
+                        : const Icon(Icons.lock_outline,
+                            size: 18, color: Color(0xFF94A3B8)),
+                    helperText: hasPlan
+                        ? null
+                        : 'Ismni o\'zgartirish — tarif sotib olinganda mumkin',
+                  ),
+                );
+              }),
               const SizedBox(height: 16),
               FilledButton.icon(
                 onPressed: _joining ? null : _join,

@@ -14,6 +14,7 @@ library;
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -36,9 +37,178 @@ class _ChatMsg {
 }
 
 class _FloatReaction {
-  _FloatReaction(this.id, this.emoji);
+  _FloatReaction(this.id, this.emoji, this.effect);
   final String id;
   final String emoji;
+  final int effect; // 0..5 — random animatsiya turi
+}
+
+/// (C6) Reaksiya markazга uchib, random effekt bilan portlaydi:
+/// 0 aylanib, 1 sochilib, 2 yonib, 3 kattalashib, 4 romb, 5 shamol.
+class _ReactionBurst extends StatefulWidget {
+  const _ReactionBurst({super.key, required this.emoji, required this.effect});
+  final String emoji;
+  final int effect;
+
+  @override
+  State<_ReactionBurst> createState() => _ReactionBurstState();
+}
+
+class _ReactionBurstState extends State<_ReactionBurst>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c;
+
+  @override
+  void initState() {
+    super.initState();
+    _c = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 2400))
+      ..forward();
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  double _fadeOut(double t, [double start = 0.7]) =>
+      t < start ? 1.0 : (1 - (t - start) / (1 - start)).clamp(0.0, 1.0);
+
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+    final cx = size.width / 2;
+    final cy = size.height / 2;
+    return AnimatedBuilder(
+      animation: _c,
+      builder: (context, _) {
+        final t = Curves.easeOut.transform(_c.value);
+        switch (widget.effect) {
+          case 0:
+            return _spin(t, cx, cy);
+          case 1:
+            return _scatter(t, cx, cy);
+          case 2:
+            return _burn(t, cx, cy);
+          case 3:
+            return _zoom(t, cx, cy);
+          case 4:
+            return _rhombus(t, cx, cy);
+          default:
+            return _wind(t, cx, cy);
+        }
+      },
+    );
+  }
+
+  Widget _emoji(double size, [List<Shadow>? shadows]) => Text(widget.emoji,
+      style: TextStyle(fontSize: size, shadows: shadows));
+
+  // 0 — aylanib chiqib ketish
+  Widget _spin(double t, double cx, double cy) {
+    final y = cy + (1 - t) * cy * 0.85;
+    final scale = 0.5 + t * 1.4;
+    return Positioned(
+      left: cx - 30,
+      top: y - 30,
+      child: Opacity(
+        opacity: _fadeOut(t, 0.75),
+        child: Transform.rotate(
+          angle: t * 4 * math.pi,
+          child: Transform.scale(scale: scale, child: _emoji(46)),
+        ),
+      ),
+    );
+  }
+
+  // 1 — markazдан sochilib ketish (7 ta nusxa)
+  Widget _scatter(double t, double cx, double cy) {
+    const n = 7;
+    final op = (1 - t).clamp(0.0, 1.0);
+    return Stack(
+      children: List.generate(n, (i) {
+        final ang = (i / n) * 2 * math.pi;
+        final dist = t * 170;
+        return Positioned(
+          left: cx + math.cos(ang) * dist - 16,
+          top: cy + math.sin(ang) * dist - 16,
+          child: Opacity(
+            opacity: op,
+            child: Transform.scale(scale: 0.7 + t * 0.7, child: _emoji(30)),
+          ),
+        );
+      }),
+    );
+  }
+
+  // 2 — yonib ketish (sariq nur + kattalashib o'chish)
+  Widget _burn(double t, double cx, double cy) {
+    final scale = 0.6 + t * 1.9;
+    return Positioned(
+      left: cx - 40,
+      top: cy - 40 - t * 70,
+      child: Opacity(
+        opacity: (1 - t * t).clamp(0.0, 1.0),
+        child: Transform.scale(
+          scale: scale,
+          child: _emoji(50, [
+            Shadow(
+                color: Colors.orange.withOpacity(0.85 * (1 - t)),
+                blurRadius: 22 + t * 34),
+            Shadow(
+                color: Colors.red.withOpacity(0.6 * (1 - t)),
+                blurRadius: 10 + t * 20),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  // 3 — markazда kattalashib (zoom) — pulse
+  Widget _zoom(double t, double cx, double cy) {
+    final scale = 0.3 + t * 2.1;
+    return Positioned(
+      left: cx - 40,
+      top: cy - 40,
+      child: Opacity(
+        opacity: _fadeOut(t, 0.65),
+        child: Transform.scale(scale: scale, child: _emoji(50)),
+      ),
+    );
+  }
+
+  // 4 — romb shaklida aylanib chiqish
+  Widget _rhombus(double t, double cx, double cy) {
+    return Positioned(
+      left: cx - 30,
+      top: cy - 30 - t * 60,
+      child: Opacity(
+        opacity: _fadeOut(t, 0.7),
+        child: Transform.rotate(
+          angle: math.pi / 4 + t * math.pi,
+          child: Transform.scale(scale: 0.7 + t, child: _emoji(42)),
+        ),
+      ),
+    );
+  }
+
+  // 5 — shamolда uchib (yon tomonga tebranib)
+  Widget _wind(double t, double cx, double cy) {
+    final y = cy + (1 - t) * cy * 0.75;
+    final x = cx + math.sin(t * 6) * 70;
+    return Positioned(
+      left: x - 24,
+      top: y - 24,
+      child: Opacity(
+        opacity: (1 - t).clamp(0.0, 1.0),
+        child: Transform.rotate(
+          angle: math.sin(t * 8) * 0.4,
+          child: Transform.scale(scale: 0.8 + t * 0.8, child: _emoji(40)),
+        ),
+      ),
+    );
+  }
 }
 
 class _WbSeg {
@@ -154,6 +324,14 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
   bool _recording = false;
   bool _recordingBusy = false;
 
+  // host mikrofon nazorati
+  bool _forceMuted = false; // host meni majburiy o'chirdimi (yoqa olmayman)
+  bool _allMuted = false;   // host: hammani o'chirdimmi (tugma holati)
+
+  // reaksiya (C7): host yashirsa — reaksiyalar faqat yuboruvchiда ko'rinadi
+  bool _reactLocked = false;
+  final _rnd = math.Random();
+
   static const _emojis = ['👍', '❤️', '😂', '👏', '🎉', '😮'];
 
   @override
@@ -237,7 +415,19 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
           });
           break;
         case 'reaction':
-          _pushReaction((m['emoji'] ?? '👍').toString());
+          final remoji = (m['emoji'] ?? '👍').toString();
+          _pushReaction(remoji);
+          // (C8) kim yuborgani chatga
+          final rsender = m['sender']?.toString();
+          if (rsender != null && rsender.isNotEmpty) {
+            _logReactionToChat(rsender, remoji);
+          }
+          break;
+        case 'reactlock':
+          setState(() => _reactLocked = m['locked'] == true);
+          _toast(_reactLocked
+              ? 'Administrator reaksiyalarni yashirdi'
+              : 'Reaksiyalar yoqildi');
           break;
         case 'hand':
           final sender = m['sender']?.toString();
@@ -259,6 +449,25 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
           break;
         case 'poll':
           _onPollData(m);
+          break;
+        case 'mute':
+          // Host majburiy mikrofon nazorati.
+          final target = m['target']?.toString();
+          final me = _room?.localParticipant?.identity;
+          final muted = m['muted'] == true;
+          if (target == 'all' || target == me) {
+            setState(() => _forceMuted = muted);
+            if (muted) {
+              if (_micOn) {
+                _micOn = false;
+                _room?.localParticipant?.setMicrophoneEnabled(false);
+              }
+              _toast('Administrator mikrofoningizni o\'chirdi');
+            } else {
+              _toast('Administrator mikrofonga ruxsat berdi');
+            }
+            if (mounted) setState(() {});
+          }
           break;
         case 'end':
           // Host yakunladi — hammada yopiladi.
@@ -293,15 +502,45 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
   // --- reactions ---
   Future<void> _react(String emoji) async {
     _pushReaction(emoji);
-    await _publish({'kind': 'reaction', 'emoji': emoji});
+    // (C8) kim yuborganini chatga yozamiz
+    _logReactionToChat(_myName, emoji, self: true);
+    // (C7) host yashirgan bo'lsa — boshqaларга yubormaymiz (faqat o'zимда)
+    if (!_reactLocked) {
+      await _publish({'kind': 'reaction', 'emoji': emoji, 'sender': _myName});
+    }
   }
 
   void _pushReaction(String emoji) {
-    final r = _FloatReaction('${DateTime.now().microsecondsSinceEpoch}', emoji);
+    final r = _FloatReaction(
+      '${DateTime.now().microsecondsSinceEpoch}_${_rnd.nextInt(9999)}',
+      emoji,
+      _rnd.nextInt(6), // random effekt
+    );
     setState(() => _reactions.add(r));
-    Timer(const Duration(milliseconds: 3200), () {
+    Timer(const Duration(milliseconds: 2600), () {
       if (mounted) setState(() => _reactions.removeWhere((x) => x.id == r.id));
     });
+  }
+
+  // (C8) reaksiyani chatga yozish (kim yubordi)
+  void _logReactionToChat(String sender, String emoji, {bool self = false}) {
+    setState(() {
+      _messages.add(_ChatMsg(
+        sender: sender,
+        body: emoji,
+        ts: DateTime.now().millisecondsSinceEpoch,
+        self: self,
+      ));
+    });
+  }
+
+  // (C7) host: reaksiyalarni yashirish/yoqish
+  Future<void> _toggleReactLock() async {
+    setState(() => _reactLocked = !_reactLocked);
+    await _publish({'kind': 'reactlock', 'locked': _reactLocked});
+    _toast(_reactLocked
+        ? 'Reaksiyalar yashirildi — faqat yuboruvchi ko\'radi'
+        : 'Reaksiyalar yoqildi');
   }
 
   Future<void> _toggleHand() async {
@@ -453,10 +692,37 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
     if (mounted) setState(() {});
   }
 
+  void _toast(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+          SnackBar(content: Text(msg), duration: const Duration(seconds: 2)));
+  }
+
   Future<void> _toggleMic() async {
+    // (B4) Host majburiy o'chirgan bo'lsa — o'zi yoqa olmaydi.
+    if (_forceMuted && !_micOn) {
+      _toast('Mikrofonni administrator o\'chirgan — yoqishni administrator hal qiladi');
+      return;
+    }
     _micOn = !_micOn;
     await _room?.localParticipant?.setMicrophoneEnabled(_micOn);
     _refresh();
+  }
+
+  /// (B3/B5) Host: hammaning mikrofonини o'chirish/yoqish.
+  Future<void> _muteAll(bool mute) async {
+    setState(() => _allMuted = mute);
+    await _publish({'kind': 'mute', 'target': 'all', 'muted': mute});
+    // Host o'zi ham (agar o'zini ham qo'shsa) — lekin host o'zini boshqaradi.
+    _toast(mute ? 'Barcha mikrofonlar o\'chirildi' : 'Mikrofonlarga ruxsat berildi');
+  }
+
+  /// (B3/B5) Host: bitta ishtirokchini o'chirish.
+  Future<void> _muteParticipant(String identity, bool mute) async {
+    await _publish({'kind': 'mute', 'target': identity, 'muted': mute});
+    _toast(mute ? 'Mikrofon o\'chirildi' : 'Mikrofonga ruxsat berildi');
   }
 
   Future<void> _toggleCam() async {
@@ -874,16 +1140,17 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
 
   Widget _reactionsOverlay() {
     if (_reactions.isEmpty) return const SizedBox.shrink();
-    return Positioned(
-      bottom: 12,
-      left: 0,
-      right: 0,
+    // (C6) Har reaksiya markazга uchib, random effekt bilan portlaydi.
+    return Positioned.fill(
       child: IgnorePointer(
-        child: Center(
-          child: Wrap(
-            spacing: 4,
-            children: _reactions.map((r) => Text(r.emoji, style: const TextStyle(fontSize: 34))).toList(),
-          ),
+        child: Stack(
+          children: _reactions
+              .map((r) => _ReactionBurst(
+                    key: ValueKey(r.id),
+                    emoji: r.emoji,
+                    effect: r.effect,
+                  ))
+              .toList(),
         ),
       ),
     );
@@ -1406,8 +1673,13 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
           Row(
             children: [
               if (!_viewOnly) ...[
-                _ctlBtn(_micOn ? Icons.mic : Icons.mic_off, 'Mikrofon',
-                    _toggleMic, danger: !_micOn),
+                _ctlBtn(
+                    _forceMuted
+                        ? Icons.mic_off
+                        : (_micOn ? Icons.mic : Icons.mic_off),
+                    _forceMuted ? 'Bloklangan' : 'Mikrofon',
+                    _toggleMic,
+                    danger: !_micOn || _forceMuted),
                 _ctlBtn(_camOn ? Icons.videocam : Icons.videocam_off, 'Kamera',
                     _toggleCam, danger: !_camOn),
                 _ctlBtn(Icons.screen_share_outlined, 'Ekran ulashish',
@@ -1622,6 +1894,32 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
                   },
                   active: _recording,
                 ),
+              if (_isHost)
+                _sheetTile(
+                  _allMuted ? Icons.mic : Icons.mic_off,
+                  _allMuted
+                      ? 'Mikrofonlarga ruxsat berish'
+                      : 'Hammani o\'chirish (mute all)',
+                  () {
+                    Navigator.pop(ctx);
+                    _muteAll(!_allMuted);
+                  },
+                  active: _allMuted,
+                ),
+              if (_isHost)
+                _sheetTile(
+                  _reactLocked
+                      ? Icons.emoji_emotions
+                      : Icons.emoji_emotions_outlined,
+                  _reactLocked
+                      ? 'Reaksiyalarni yoqish'
+                      : 'Reaksiyalarni yashirish',
+                  () {
+                    Navigator.pop(ctx);
+                    _toggleReactLock();
+                  },
+                  active: _reactLocked,
+                ),
             ],
           ),
         ),
@@ -1718,7 +2016,28 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               if (p.hand) const Text('✋'),
-                              const SizedBox(width: 8),
+                              // (B3) Host bitta ishtirokchini o'chiradi/yoqadi
+                              if (_isHost && !p.local)
+                                IconButton(
+                                  visualDensity: VisualDensity.compact,
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(
+                                      minWidth: 36, minHeight: 36),
+                                  icon: Icon(
+                                      p.muted
+                                          ? Icons.mic_off_outlined
+                                          : Icons.mic_none,
+                                      size: 20,
+                                      color: AppColors.slate500),
+                                  tooltip: p.muted
+                                      ? 'Mikrofonga ruxsat'
+                                      : 'Mikrofonni o\'chirish',
+                                  onPressed: () {
+                                    Navigator.pop(ctx);
+                                    _muteParticipant(p.id, !p.muted);
+                                  },
+                                ),
+                              const SizedBox(width: 4),
                               Icon(p.muted ? Icons.mic_off : Icons.mic,
                                   size: 18,
                                   color: p.muted
@@ -1843,6 +2162,43 @@ class _WbPainter extends CustomPainter {
   bool shouldRepaint(covariant _WbPainter old) => true;
 }
 
+// ── chat yordamchilari (premium bubble) ──
+bool _chatIsEmoji(String s) {
+  final t = s.trim();
+  if (t.isEmpty || t.runes.length > 3) return false;
+  return t.runes.every((r) => r > 0x2000); // emoji/symbol = yuqori kod-nuqta
+}
+
+String _chatInitials(String name) {
+  final p = name.trim().split(RegExp(r'\s+'));
+  final a = p.isNotEmpty && p[0].isNotEmpty ? p[0][0] : '?';
+  final b = p.length > 1 && p[1].isNotEmpty ? p[1][0] : '';
+  return (a + b).toUpperCase();
+}
+
+Color _chatColor(String name) {
+  const colors = [
+    Color(0xFF6366F1),
+    Color(0xFF0EA5E9),
+    Color(0xFF10B981),
+    Color(0xFFF59E0B),
+    Color(0xFFEF4444),
+    Color(0xFF8B5CF6),
+    Color(0xFFEC4899),
+    Color(0xFF14B8A6),
+  ];
+  var h = 0;
+  for (final c in name.codeUnits) {
+    h = (h * 31 + c) & 0x7fffffff;
+  }
+  return colors[h % colors.length];
+}
+
+String _chatTime(int ts) {
+  final d = DateTime.fromMillisecondsSinceEpoch(ts);
+  return '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+}
+
 class _ChatSheet extends StatefulWidget {
   const _ChatSheet({required this.messages, required this.onSend});
   final List<_ChatMsg> messages;
@@ -1864,72 +2220,173 @@ class _ChatSheetState extends State<_ChatSheet> {
   @override
   Widget build(BuildContext context) {
     final bottom = MediaQuery.of(context).viewInsets.bottom;
+    final h = MediaQuery.of(context).size.height;
     return Padding(
       padding: EdgeInsets.only(bottom: bottom),
       child: SizedBox(
-        height: MediaQuery.of(context).size.height * 0.6,
+        height: h * 0.7,
         child: Column(
           children: [
+            const SizedBox(height: 10),
+            Center(
+              child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                      color: Colors.white24,
+                      borderRadius: BorderRadius.circular(2))),
+            ),
             const Padding(
-              padding: EdgeInsets.all(14),
-              child: Text('Suhbat', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 16)),
+              padding: EdgeInsets.fromLTRB(18, 12, 18, 8),
+              child: Row(children: [
+                Icon(Icons.forum_rounded, color: Colors.white70, size: 18),
+                SizedBox(width: 8),
+                Text('Suhbat',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 16)),
+              ]),
             ),
             Expanded(
               child: widget.messages.isEmpty
-                  ? const Center(child: Text('Hali xabar yo\'q', style: TextStyle(color: Colors.white38)))
+                  ? Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: const [
+                          Text('💬', style: TextStyle(fontSize: 36)),
+                          SizedBox(height: 8),
+                          Text('Hali xabar yo\'q',
+                              style: TextStyle(color: Colors.white38)),
+                        ],
+                      ),
+                    )
                   : ListView.builder(
                       reverse: true,
-                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      padding: const EdgeInsets.fromLTRB(12, 4, 12, 6),
                       itemCount: widget.messages.length,
                       itemBuilder: (_, i) {
-                        final m = widget.messages[widget.messages.length - 1 - i];
-                        return Align(
-                          alignment: m.self ? Alignment.centerRight : Alignment.centerLeft,
-                          child: Container(
-                            margin: const EdgeInsets.symmetric(vertical: 4),
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
-                            decoration: BoxDecoration(
-                              color: m.self ? const Color(0xFF3F51B5) : Colors.white10,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                if (!m.self)
-                                  Text(m.sender, style: const TextStyle(color: Colors.white54, fontSize: 11)),
-                                Text(m.body, style: const TextStyle(color: Colors.white)),
-                              ],
-                            ),
-                          ),
-                        );
+                        final m =
+                            widget.messages[widget.messages.length - 1 - i];
+                        return _bubble(m, context);
                       },
                     ),
             ),
-            Padding(
-              padding: const EdgeInsets.all(10),
+            Container(
+              padding: const EdgeInsets.fromLTRB(10, 8, 10, 12),
+              decoration: const BoxDecoration(
+                  border: Border(top: BorderSide(color: Colors.white12))),
               child: Row(
                 children: [
                   Expanded(
                     child: TextField(
                       controller: _ctrl,
                       style: const TextStyle(color: Colors.white),
-                      decoration: const InputDecoration(
+                      textInputAction: TextInputAction.send,
+                      decoration: InputDecoration(
                         hintText: 'Xabar yozing...',
-                        hintStyle: TextStyle(color: Colors.white38),
+                        hintStyle: const TextStyle(color: Colors.white38),
                         filled: true,
                         fillColor: Colors.white10,
-                        border: OutlineInputBorder(borderSide: BorderSide.none),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 12),
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(24),
+                            borderSide: BorderSide.none),
                       ),
                       onSubmitted: (_) => _send(),
                     ),
                   ),
-                  IconButton(icon: const Icon(Icons.send, color: Color(0xFF3F51B5)), onPressed: _send),
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: _send,
+                    child: Container(
+                      width: 46,
+                      height: 46,
+                      decoration: const BoxDecoration(
+                          color: AppColors.brand600, shape: BoxShape.circle),
+                      child: const Icon(Icons.send_rounded,
+                          color: Colors.white, size: 20),
+                    ),
+                  ),
                 ],
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _bubble(_ChatMsg m, BuildContext context) {
+    final emojiOnly = _chatIsEmoji(m.body);
+    final maxW = MediaQuery.of(context).size.width * 0.72;
+    final Widget content = emojiOnly
+        ? Padding(
+            padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
+            child: Text(m.body, style: const TextStyle(fontSize: 30)))
+        : Container(
+            padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
+            constraints: BoxConstraints(maxWidth: maxW),
+            decoration: BoxDecoration(
+              color: m.self ? AppColors.brand600 : Colors.white12,
+              borderRadius: BorderRadius.only(
+                topLeft: const Radius.circular(16),
+                topRight: const Radius.circular(16),
+                bottomLeft: Radius.circular(m.self ? 16 : 4),
+                bottomRight: Radius.circular(m.self ? 4 : 16),
+              ),
+            ),
+            child: Text(m.body,
+                style: const TextStyle(color: Colors.white, fontSize: 14)),
+          );
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        mainAxisAlignment:
+            m.self ? MainAxisAlignment.end : MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          if (!m.self) ...[
+            Container(
+              width: 30,
+              height: 30,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                  color: _chatColor(m.sender), shape: BoxShape.circle),
+              child: Text(_chatInitials(m.sender),
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700)),
+            ),
+            const SizedBox(width: 8),
+          ],
+          Flexible(
+            child: Column(
+              crossAxisAlignment:
+                  m.self ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+              children: [
+                if (!m.self)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 4, bottom: 2),
+                    child: Text(m.sender,
+                        style: const TextStyle(
+                            color: Colors.white54,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600)),
+                  ),
+                content,
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                  child: Text(_chatTime(m.ts),
+                      style:
+                          const TextStyle(color: Colors.white30, fontSize: 9.5)),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -10,6 +10,8 @@ import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/network/dio_client.dart';
+
 String normalizePhone(String raw) {
   final digits = raw.replaceAll(RegExp(r'\D'), '');
   return digits.length > 9 ? digits.substring(digits.length - 9) : digits;
@@ -116,6 +118,39 @@ class ContactsStore {
         a.displayName.toLowerCase().compareTo(b.displayName.toLowerCase()));
     loaded = true;
     return deduped;
+  }
+
+  /// (E13) Foydalanuvchi uchrashuvlaridан yig'ilган ishtirokchilar
+  /// (backend /me/meeting-contacts) — saqlangan nom (override) bilan.
+  Future<List<AppContact>> meetingContacts() async {
+    try {
+      final res = await DioClient.instance.dio
+          .get<Map<String, dynamic>>('/me/meeting-contacts');
+      final items = res.data?['contacts'];
+      if (items is! List) return [];
+      final prefs = await SharedPreferences.getInstance();
+      final out = <AppContact>[];
+      for (final c in items) {
+        if (c is! Map) continue;
+        final name = (c['name'] ?? 'Mehmon').toString();
+        final rawPhone = (c['phone'] ?? '').toString();
+        final norm = rawPhone.isNotEmpty ? normalizePhone(rawPhone) : '';
+        final ov = norm.isNotEmpty ? prefs.getString('$_prefix$norm') : null;
+        if (norm.isNotEmpty && ov != null && ov.trim().isNotEmpty) {
+          _byPhone[norm] = ov.trim();
+        }
+        out.add(AppContact(
+          id: norm.isNotEmpty ? norm : 'n_${out.length}_$name',
+          deviceName: name,
+          phone: norm,
+          rawPhone: rawPhone.isNotEmpty ? rawPhone : '—',
+          override: ov,
+        ));
+      }
+      return out;
+    } catch (_) {
+      return [];
+    }
   }
 
   Future<void> setOverride(String phone, String? name) async {

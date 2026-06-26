@@ -28,10 +28,24 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
   String _query = '';
   Timer? _slowTimer;
 
+  // (E13) Ishtirokchilar tabi — uchrashuvlardan yig'ilган
+  List<AppContact> _participants = [];
+  bool _pLoading = true;
+
   @override
   void initState() {
     super.initState();
     _init();
+    _loadParticipants();
+  }
+
+  Future<void> _loadParticipants() async {
+    final list = await ContactsStore.instance.meetingContacts();
+    if (!mounted) return;
+    setState(() {
+      _participants = list;
+      _pLoading = false;
+    });
   }
 
   @override
@@ -129,12 +143,83 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
     if (res == null) return;
     await ContactsStore.instance
         .setOverride(c.phone, res == '__clear__' ? null : res);
-    await _reload();
+    if (_granted == true) await _reload();
+    await _loadParticipants();
   }
 
   @override
   Widget build(BuildContext context) {
-    return AloqaAppShell(currentPath: '/contacts', child: _content());
+    // (E11) Tepada 2 ta tugma: Kontaktlar / Ishtirokchilar
+    return AloqaAppShell(
+      currentPath: '/contacts',
+      child: DefaultTabController(
+        length: 2,
+        child: Column(
+          children: [
+            Material(
+              color: Colors.transparent,
+              child: TabBar(
+                labelColor: AppColors.brand600,
+                unselectedLabelColor: AppColors.slate500,
+                indicatorColor: AppColors.brand600,
+                labelStyle: const TextStyle(fontWeight: FontWeight.w700),
+                tabs: const [
+                  Tab(text: 'Kontaktlar'),
+                  Tab(text: 'Ishtirokchilar'),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: TabBarView(
+                children: [
+                  _content(),
+                  _participantsTab(),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // (E13) Ishtirokchilar tabi
+  Widget _participantsTab() {
+    if (_pLoading) {
+      return const Center(
+          child: CircularProgressIndicator(color: AppColors.brand600));
+    }
+    if (_participants.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 32),
+          child: Text(
+            'Hozircha ishtirokchi yo\'q.\nUchrashuv o\'tkazsangiz, ishtirokchilar shu yerда to\'planadi.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: AppColors.slate400),
+          ),
+        ),
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Text('${_participants.length} ta ishtirokchi',
+              style: const TextStyle(fontSize: 12.5, color: AppColors.slate400)),
+        ),
+        Expanded(
+          child: ListView.separated(
+            padding: const EdgeInsets.only(bottom: 12),
+            itemCount: _participants.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 8),
+            itemBuilder: (_, i) => _row(_participants[i]),
+          ),
+        ),
+      ],
+    );
   }
 
   Widget _content() {

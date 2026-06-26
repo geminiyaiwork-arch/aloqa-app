@@ -53,10 +53,10 @@ dependencies:
   # 2.4.0+ needs Dart 3.6. PIN 2.2.6 — do not bump on Flutter 3.22.
   livekit_client: 2.2.6
 
-  # Push notifications (FCM). Firebase 4.8+/16.3+ require Flutter 3.27 — PIN the
-  # exact versions that resolve on Flutter 3.22.2 / Dart 3.4.3 (caret would drift).
-  firebase_core: 4.7.0
-  firebase_messaging: 16.2.0
+  # Push notifications (FCM) — REMOVED for now: firebase_core/firebase_messaging
+  # break the desktop (Linux/Windows/macOS) and iOS CI builds (pod/cmake) and are
+  # currently unused (only a TODO in main.dart). Re-add with google-services.json +
+  # firebase_options.dart when push is wired (TZ §2.10).
   flutter_contacts: ^1.1.9+2
 
   # Avatar: pick from gallery (crop is done in-app, pure Dart — no native cropper,

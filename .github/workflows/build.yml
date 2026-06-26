@@ -76,12 +76,22 @@ jobs:
           channel: stable
       - run: flutter pub get
       - run: flutter build windows --release --dart-define=ALOQA_API_BASE=https://api.aloqa.ucms.uz/api/v1 --dart-define=ALOQA_LIVEKIT_URL=wss://rtc.aloqa.ucms.uz
-      - name: Zip
+      - name: Portable .zip
         run: Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath aloqa-windows-x64.zip
+      - name: Installer .exe (Inno Setup)
+        shell: pwsh
+        run: |
+          $ver = (Select-String -Path pubspec.yaml -Pattern '^version:\s*([0-9.]+)').Matches.Groups[1].Value
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (!(Test-Path $iscc)) { choco install innosetup -y --no-progress; $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" }
+          & $iscc "/DAppVer=$ver" /O. installer\windows\aloqa.iss
+          Get-Item aloqa-windows-setup.exe | Select-Object Name,Length
       - uses: actions/upload-artifact@v4
         with:
           name: windows
-          path: aloqa-windows-x64.zip
+          path: |
+            aloqa-windows-setup.exe
+            aloqa-windows-x64.zip
 
   # ─────────────── macOS (.dmg) ───────────────
   macos:

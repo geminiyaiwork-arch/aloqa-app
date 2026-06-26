@@ -1,0 +1,127 @@
+name: build-all-platforms
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  # ─────────────── Linux (.deb + .tar.gz) ───────────────
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.22.2'
+          channel: stable
+      - name: Linux deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev
+      - run: flutter pub get
+      - run: flutter build linux --release
+      - name: Package .tar.gz + .deb
+        run: |
+          set -e
+          VER=$(grep '^version:' pubspec.yaml | sed 's/version: *//; s/+.*//')
+          BUNDLE=build/linux/x64/release/bundle
+          # tar.gz
+          tar czf aloqa-linux-x64.tar.gz -C "$BUNDLE" .
+          # .deb
+          rm -rf pkg
+          mkdir -p pkg/DEBIAN pkg/opt/aloqa pkg/usr/bin pkg/usr/share/applications pkg/usr/share/icons/hicolor/256x256/apps
+          cp -r "$BUNDLE"/* pkg/opt/aloqa/
+          [ -f assets/images/logo.png ] && cp assets/images/logo.png pkg/usr/share/icons/hicolor/256x256/apps/aloqa.png || true
+          printf '#!/bin/sh\nexec /opt/aloqa/aloqa "$@"\n' > pkg/usr/bin/aloqa
+          chmod 755 pkg/usr/bin/aloqa
+          cat > pkg/usr/share/applications/aloqa.desktop <<DESK
+          [Desktop Entry]
+          Name=ALOQA
+          Comment=Video aloqa, qo'ng'iroq va webinar
+          Exec=/opt/aloqa/aloqa
+          Icon=aloqa
+          Type=Application
+          Categories=Network;AudioVideo;
+          DESK
+          cat > pkg/DEBIAN/control <<CTRL
+          Package: aloqa
+          Version: ${VER}
+          Section: net
+          Priority: optional
+          Architecture: amd64
+          Depends: libgtk-3-0, libstdc++6
+          Maintainer: ALOQA <noreply@aloqa.ucms.uz>
+          Description: ALOQA — video aloqa super-platformasi
+          CTRL
+          dpkg-deb --build --root-owner-group pkg aloqa-linux-x64.deb
+          ls -la aloqa-linux-x64.*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: |
+            aloqa-linux-x64.tar.gz
+            aloqa-linux-x64.deb
+
+  # ─────────────── Windows (.zip) ───────────────
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.22.2'
+          channel: stable
+      - run: flutter pub get
+      - run: flutter build windows --release
+      - name: Zip
+        run: Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath aloqa-windows-x64.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: aloqa-windows-x64.zip
+
+  # ─────────────── macOS (.dmg) ───────────────
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.22.2'
+          channel: stable
+      - run: flutter pub get
+      - run: flutter build macos --release
+      - name: DMG
+        run: |
+          APP=$(ls -d build/macos/Build/Products/Release/*.app | head -1)
+          hdiutil create -volname ALOQA -srcfolder "$APP" -ov -format UDZO aloqa-macos.dmg
+          ls -la aloqa-macos.dmg
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: aloqa-macos.dmg
+
+  # ─────────────── iOS (imzosiz .ipa) ───────────────
+  ios:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.22.2'
+          channel: stable
+      - run: flutter pub get
+      - run: flutter build ios --release --no-codesign
+      - name: Package unsigned .ipa
+        run: |
+          set -e
+          cd build/ios/iphoneos
+          mkdir -p Payload
+          cp -r Runner.app Payload/
+          zip -qr "$GITHUB_WORKSPACE/aloqa-ios-unsigned.ipa" Payload
+          ls -la "$GITHUB_WORKSPACE/aloqa-ios-unsigned.ipa"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ios
+          path: aloqa-ios-unsigned.ipa

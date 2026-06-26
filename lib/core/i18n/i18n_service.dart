@@ -117,7 +117,7 @@ class I18nController extends StateNotifier<I18nState> {
 
   final Dio _dio;
   static const _kSelectedPrefKey = 'aloqa_i18n_selected';
-  static const _kNamespaces = ['common', 'mobile'];
+  static const _kNamespaces = ['common', 'web'];
 
   String _bundleCacheKey(String lang, String ns, int version) =>
       'aloqa_i18n_bundle_${lang}_${ns}_v$version';

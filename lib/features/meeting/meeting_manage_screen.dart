@@ -14,6 +14,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:aloqa/core/config/app_config.dart';
 import 'package:aloqa/core/format.dart';
+import 'package:aloqa/core/i18n/i18n_service.dart';
 import 'package:aloqa/core/theme/app_theme.dart';
 import 'package:aloqa/core/widgets/aloqa_card.dart';
 import 'package:aloqa/core/widgets/app_shell.dart';
@@ -145,7 +146,7 @@ class _MeetingManageScreenState extends ConsumerState<MeetingManageScreen> {
   void _snackError() {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Xatolik yuz berdi')),
+      SnackBar(content: Text(ref.tt('common.error'))),
     );
   }
 
@@ -299,18 +300,17 @@ class _MeetingManageScreenState extends ConsumerState<MeetingManageScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text("Uchrashuvni o'chirish"),
-        content: const Text(
-            "Bu uchrashuvni o'chirmoqchimisiz? Bu amalni qaytarib bo'lmaydi."),
+        title: Text(ref.tt('mobile.manage.deleteTitle')),
+        content: Text(ref.tt('mobile.manage.deleteConfirm')),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Bekor qilish'),
+            child: Text(ref.tt('action.cancel')),
           ),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(true),
             style: TextButton.styleFrom(foregroundColor: AppColors.danger),
-            child: const Text("O'chirish"),
+            child: Text(ref.tt('mobile.action.delete')),
           ),
         ],
       ),
@@ -349,7 +349,7 @@ class _MeetingManageScreenState extends ConsumerState<MeetingManageScreen> {
       await _repo.transcribe(_id);
       await _loadTranscript();
     } catch (_) {
-      _snack('Avval uchrashuvni yozib oling');
+      _snack(ref.tt('mobile.manage.transcriptNeedRecord'));
     } finally {
       if (mounted) setState(() => _busyTranscribe = false);
     }
@@ -368,12 +368,13 @@ class _MeetingManageScreenState extends ConsumerState<MeetingManageScreen> {
       var text = bytes.isNotEmpty
           ? String.fromCharCodes(bytes)
           : (_transcript?.text ?? '');
-      if (text.trim().isEmpty) text = 'Matn mavjud emas.';
+      if (text.trim().isEmpty) text = ref.tt('mobile.manage.transcriptEmpty');
       if (!mounted) return;
       await showDialog<void>(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: Text('Transkript (.$format)'),
+          title: Text(
+              ref.tt('mobile.manage.transcriptDialogTitle', {'format': format})),
           content: SizedBox(
             width: 520,
             child: SingleChildScrollView(
@@ -388,13 +389,13 @@ class _MeetingManageScreenState extends ConsumerState<MeetingManageScreen> {
               onPressed: () async {
                 await Clipboard.setData(ClipboardData(text: text));
                 if (ctx.mounted) Navigator.of(ctx).pop();
-                _snack('Nusxalandi');
+                _snack(ref.tt('action.copied'));
               },
-              child: const Text('Nusxalash'),
+              child: Text(ref.tt('action.copy')),
             ),
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('Yopish'),
+              child: Text(ref.tt('mobile.action.close')),
             ),
           ],
         ),
@@ -409,16 +410,16 @@ class _MeetingManageScreenState extends ConsumerState<MeetingManageScreen> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const AloqaAppShell(
+      return AloqaAppShell(
         currentPath: '/meeting/:id',
         child: _CenteredState(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              CircularProgressIndicator(color: AppColors.brand600),
-              SizedBox(height: 16),
-              Text('Yuklanmoqda…',
-                  style: TextStyle(color: AppColors.slate500)),
+              const CircularProgressIndicator(color: AppColors.brand600),
+              const SizedBox(height: 16),
+              Text(ref.t('common.loading'),
+                  style: const TextStyle(color: AppColors.slate500)),
             ],
           ),
         ),
@@ -434,9 +435,9 @@ class _MeetingManageScreenState extends ConsumerState<MeetingManageScreen> {
             children: [
               const Text('🔍', style: TextStyle(fontSize: 40)),
               const SizedBox(height: 12),
-              const Text(
-                'Uchrashuv topilmadi.',
-                style: TextStyle(
+              Text(
+                ref.t('mobile.manage.notFound'),
+                style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
                     color: AppColors.slate900),
@@ -445,7 +446,7 @@ class _MeetingManageScreenState extends ConsumerState<MeetingManageScreen> {
               SizedBox(
                 width: 200,
                 child: GradientButton(
-                  label: 'Bosh sahifa',
+                  label: ref.t('mobile.manage.homeButton'),
                   icon: Icons.home_rounded,
                   onPressed: () => context.go('/home'),
                 ),
@@ -490,11 +491,11 @@ class _MeetingManageScreenState extends ConsumerState<MeetingManageScreen> {
     return InkWell(
       onTap: () => context.go('/home'),
       borderRadius: BorderRadius.circular(8),
-      child: const Padding(
-        padding: EdgeInsets.symmetric(vertical: 4),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
         child: Text(
-          '← Orqaga',
-          style: TextStyle(
+          ref.t('mobile.manage.back'),
+          style: const TextStyle(
               color: AppColors.brand600, fontWeight: FontWeight.w600),
         ),
       ),
@@ -540,7 +541,7 @@ class _MeetingManageScreenState extends ConsumerState<MeetingManageScreen> {
           ),
           const SizedBox(height: 10),
           Text(
-            'Konferensiya ID: $code',
+            ref.t('mobile.manage.conferenceIdLabel', {'code': code}),
             style: const TextStyle(color: AppColors.slate500, fontSize: 14),
           ),
           const SizedBox(height: 16),
@@ -550,14 +551,16 @@ class _MeetingManageScreenState extends ConsumerState<MeetingManageScreen> {
             children: [
               _outlineAction(
                 icon: _copiedLink ? Icons.check_rounded : Icons.link_rounded,
-                label: _copiedLink ? '✓ Nusxalandi' : 'Havolani nusxalash',
+                label: _copiedLink
+                    ? ref.t('mobile.manage.copiedCheck')
+                    : ref.t('mobile.manage.copyLink'),
                 onTap: () =>
                     _copy(_inviteLink, (v) => setState(() => _copiedLink = v)),
               ),
               SizedBox(
                 width: 220,
                 child: GradientButton(
-                  label: 'Uchrashuvga kirish',
+                  label: ref.t('mobile.manage.joinMeeting'),
                   icon: Icons.login_rounded,
                   onPressed: () => context.go('/lobby/$_id'),
                 ),
@@ -624,9 +627,9 @@ class _MeetingManageScreenState extends ConsumerState<MeetingManageScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SectionHeading("Konferensiya ma'lumotlari"),
+          SectionHeading(ref.t('mobile.manage.detailsHeading')),
           const SizedBox(height: 14),
-          _fieldLabel('Nomi'),
+          _fieldLabel(ref.t('mobile.manage.nameLabel')),
           const SizedBox(height: 6),
           if (_editingTitle)
             Row(
@@ -660,7 +663,7 @@ class _MeetingManageScreenState extends ConsumerState<MeetingManageScreen> {
                         )
                       : const Icon(Icons.check_rounded,
                           color: AppColors.brand600),
-                  tooltip: 'Saqlash',
+                  tooltip: ref.t('mobile.manage.tooltipSave'),
                 ),
               ],
             )
@@ -683,12 +686,12 @@ class _MeetingManageScreenState extends ConsumerState<MeetingManageScreen> {
                   },
                   icon: const Icon(Icons.edit_outlined,
                       size: 18, color: AppColors.slate500),
-                  tooltip: 'Tahrirlash',
+                  tooltip: ref.t('mobile.manage.tooltipEdit'),
                 ),
               ],
             ),
           const SizedBox(height: 16),
-          _fieldLabel('Konferensiya ID'),
+          _fieldLabel(ref.t('mobile.manage.conferenceId')),
           const SizedBox(height: 6),
           _copyBox(
             value: code,
@@ -696,7 +699,7 @@ class _MeetingManageScreenState extends ConsumerState<MeetingManageScreen> {
             onCopy: () => _copy(code, (v) => setState(() => _copiedId = v)),
           ),
           const SizedBox(height: 16),
-          _fieldLabel('Taklif havolasi'),
+          _fieldLabel(ref.t('mobile.manage.inviteLink')),
           const SizedBox(height: 6),
           _copyBox(
             value: _inviteLink,
@@ -741,7 +744,7 @@ class _MeetingManageScreenState extends ConsumerState<MeetingManageScreen> {
               size: 18,
               color: copied ? AppColors.brand600 : AppColors.slate500,
             ),
-            tooltip: 'Nusxalash',
+            tooltip: ref.t('mobile.manage.tooltipCopy'),
           ),
         ],
       ),
@@ -755,20 +758,20 @@ class _MeetingManageScreenState extends ConsumerState<MeetingManageScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SectionHeading('Kirish sozlamasi'),
+          SectionHeading(ref.t('mobile.manage.entryHeading')),
           const SizedBox(height: 14),
           _entryRadio(
             selected: !waiting,
-            title: 'Hammaga ochiq',
-            subtitle: 'Foydalanuvchilar to\'g\'ridan-to\'g\'ri qo\'shiladi',
+            title: ref.t('mobile.manage.entryOpen'),
+            subtitle: ref.t('mobile.manage.entryOpenSub'),
             icon: Icons.lock_open_rounded,
             onTap: _busyEntry ? null : () => _setWaitingRoom(false),
           ),
           const SizedBox(height: 12),
           _entryRadio(
             selected: waiting,
-            title: 'Kutish xonasi',
-            subtitle: 'Mezbon har bir kishini tasdiqlaydi',
+            title: ref.t('mobile.manage.entryWaiting'),
+            subtitle: ref.t('mobile.manage.entryWaitingSub'),
             icon: Icons.meeting_room_rounded,
             onTap: _busyEntry ? null : () => _setWaitingRoom(true),
           ),
@@ -850,18 +853,18 @@ class _MeetingManageScreenState extends ConsumerState<MeetingManageScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SectionHeading('Konferensiyani boshqarish'),
+          SectionHeading(ref.t('mobile.manage.manageHeading')),
           const SizedBox(height: 14),
           if (!isLive && !isEnded) ...[
             GradientButton(
-              label: 'Boshlash',
+              label: ref.t('landing.cta.start'),
               icon: Icons.play_arrow_rounded,
               busy: _busyStart,
               onPressed: _busyStart ? null : _startMeeting,
             ),
             const SizedBox(height: 16),
           ],
-          _fieldLabel('Avtomatik tugash'),
+          _fieldLabel(ref.t('mobile.manage.autoEnd')),
           const SizedBox(height: 6),
           Text(
             fmtDateTime(m.autoEndAt),
@@ -871,14 +874,14 @@ class _MeetingManageScreenState extends ConsumerState<MeetingManageScreen> {
                 color: AppColors.slate900),
           ),
           const SizedBox(height: 12),
-          _fieldLabel('Davomiyligi'),
+          _fieldLabel(ref.t('mobile.manage.durationLabel')),
           const SizedBox(height: 6),
           Opacity(
             opacity: _busyDuration ? 0.6 : 1,
             child: DropdownButtonFormField<int>(
               value: currentDuration,
               isExpanded: true,
-              hint: const Text('Tanlang'),
+              hint: Text(ref.t('mobile.manage.pickPlaceholder')),
               decoration: InputDecoration(
                 isDense: true,
                 contentPadding:
@@ -912,7 +915,7 @@ class _MeetingManageScreenState extends ConsumerState<MeetingManageScreen> {
               Expanded(
                 child: _pickerButton(
                   icon: Icons.calendar_today_rounded,
-                  label: 'Sana',
+                  label: ref.t('mobile.manage.dateLabel'),
                   onTap: _busyDuration ? null : _pickAutoEndDate,
                 ),
               ),
@@ -920,7 +923,7 @@ class _MeetingManageScreenState extends ConsumerState<MeetingManageScreen> {
               Expanded(
                 child: _pickerButton(
                   icon: Icons.schedule_rounded,
-                  label: 'Vaqt',
+                  label: ref.t('mobile.manage.timeLabel'),
                   onTap: _busyDuration ? null : _pickAutoEndTime,
                 ),
               ),
@@ -932,14 +935,14 @@ class _MeetingManageScreenState extends ConsumerState<MeetingManageScreen> {
           if (!isEnded)
             _dangerButton(
               icon: Icons.stop_circle_outlined,
-              label: 'Tugatish',
+              label: ref.t('mobile.manage.end'),
               busy: _busyEnd,
               onTap: _busyEnd ? null : _endMeeting,
             ),
           if (!isEnded) const SizedBox(height: 10),
           _dangerButton(
             icon: Icons.delete_outline_rounded,
-            label: "O'chirish",
+            label: ref.t('mobile.action.delete'),
             busy: _busyDelete,
             filled: true,
             onTap: _busyDelete ? null : _deleteMeeting,
@@ -950,14 +953,14 @@ class _MeetingManageScreenState extends ConsumerState<MeetingManageScreen> {
   }
 
   String _durationLabel(int d) {
-    if (d == 0) return 'Cheksiz';
-    if (d == 60) return '1 soat';
-    if (d == 120) return '2 soat';
-    if (d == 180) return '3 soat';
-    if (d == 360) return '6 soat';
-    if (d == 720) return '12 soat';
-    if (d == 1440) return '24 soat';
-    return '$d daqiqa';
+    if (d == 0) return ref.t('mobile.duration.unlimited');
+    if (d == 60) return ref.t('mobile.duration.hour1');
+    if (d == 120) return ref.t('mobile.duration.hour2');
+    if (d == 180) return ref.t('mobile.duration.hour3');
+    if (d == 360) return ref.t('mobile.duration.hour6');
+    if (d == 720) return ref.t('mobile.duration.hour12');
+    if (d == 1440) return ref.t('mobile.duration.hour24');
+    return ref.t('mobile.duration.minutes', {'minutes': '$d'});
   }
 
   Widget _pickerButton({
@@ -1041,14 +1044,14 @@ class _MeetingManageScreenState extends ConsumerState<MeetingManageScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SectionHeading('Ishtirokchilar'),
+          SectionHeading(ref.t('conf.participants')),
           const SizedBox(height: 12),
           Row(
             children: [
-              _tab('Onlayn', !_showWaitingTab,
+              _tab(ref.t('mobile.manage.tabOnline'), !_showWaitingTab,
                   () => setState(() => _showWaitingTab = false)),
               const SizedBox(width: 8),
-              _tab('Kutish', _showWaitingTab,
+              _tab(ref.t('mobile.manage.tabWaiting'), _showWaitingTab,
                   () => setState(() => _showWaitingTab = true)),
             ],
           ),
@@ -1061,7 +1064,7 @@ class _MeetingManageScreenState extends ConsumerState<MeetingManageScreen> {
               ),
             ),
             error: (_, __) =>
-                const InlineErrorBanner(message: 'Xatolik yuz berdi'),
+                InlineErrorBanner(message: ref.t('common.error')),
             data: (live) => _showWaitingTab
                 ? _waitingList(live.waiting)
                 : _onlineTable(
@@ -1096,7 +1099,7 @@ class _MeetingManageScreenState extends ConsumerState<MeetingManageScreen> {
 
   Widget _onlineTable(List<ParticipantHistory> rows) {
     if (rows.isEmpty) {
-      return _emptyRow('Hozircha onlayn ishtirokchi yo\'q.');
+      return _emptyRow(ref.t('mobile.manage.noOnline'));
     }
     return Column(
       children: [
@@ -1127,7 +1130,9 @@ class _MeetingManageScreenState extends ConsumerState<MeetingManageScreen> {
                             color: AppColors.slate900),
                       ),
                       Text(
-                        p.role == 'host' ? 'Mezbon' : 'Ishtirokchi',
+                        p.role == 'host'
+                            ? ref.t('mobile.manage.roleHost')
+                            : ref.t('mobile.manage.roleParticipant'),
                         style: const TextStyle(
                             fontSize: 12, color: AppColors.slate400),
                       ),
@@ -1147,11 +1152,11 @@ class _MeetingManageScreenState extends ConsumerState<MeetingManageScreen> {
                   onSelected: (v) {
                     if (v == 'kick') _kick(p);
                   },
-                  itemBuilder: (_) => const [
+                  itemBuilder: (_) => [
                     PopupMenuItem<String>(
                       value: 'kick',
-                      child: Text("Chiqarish",
-                          style: TextStyle(color: AppColors.danger)),
+                      child: Text(ref.t('mobile.manage.kick'),
+                          style: const TextStyle(color: AppColors.danger)),
                     ),
                   ],
                 ),
@@ -1164,7 +1169,7 @@ class _MeetingManageScreenState extends ConsumerState<MeetingManageScreen> {
 
   Widget _waitingList(List<WaitingPerson> rows) {
     if (rows.isEmpty) {
-      return _emptyRow('Kutish xonasi bo\'sh.');
+      return _emptyRow(ref.t('mobile.manage.waitingEmpty'));
     }
     return Column(
       children: [
@@ -1204,8 +1209,8 @@ class _MeetingManageScreenState extends ConsumerState<MeetingManageScreen> {
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8)),
                     ),
-                    child: const Text('Qabul',
-                        style: TextStyle(fontSize: 13)),
+                    child: Text(ref.t('mobile.action.admit'),
+                        style: const TextStyle(fontSize: 13)),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -1222,7 +1227,8 @@ class _MeetingManageScreenState extends ConsumerState<MeetingManageScreen> {
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8)),
                     ),
-                    child: const Text('Rad', style: TextStyle(fontSize: 13)),
+                    child: Text(ref.t('mobile.action.deny'),
+                        style: const TextStyle(fontSize: 13)),
                   ),
                 ),
               ],
@@ -1240,7 +1246,7 @@ class _MeetingManageScreenState extends ConsumerState<MeetingManageScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SectionHeading('Tarix'),
+          SectionHeading(ref.t('mobile.manage.historyHeading')),
           const SizedBox(height: 14),
           liveAsync.when(
             loading: () => const Padding(
@@ -1250,11 +1256,11 @@ class _MeetingManageScreenState extends ConsumerState<MeetingManageScreen> {
               ),
             ),
             error: (_, __) =>
-                const InlineErrorBanner(message: 'Xatolik yuz berdi'),
+                InlineErrorBanner(message: ref.t('common.error')),
             data: (live) {
               final rows = live.participants;
               if (rows.isEmpty) {
-                return _emptyRow('Hali ishtirokchi tarixi yo\'q.');
+                return _emptyRow(ref.t('mobile.manage.historyEmpty'));
               }
               return SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
@@ -1265,13 +1271,13 @@ class _MeetingManageScreenState extends ConsumerState<MeetingManageScreen> {
                       color: AppColors.slate600),
                   dataTextStyle: const TextStyle(
                       fontSize: 13, color: AppColors.slate700),
-                  columns: const [
-                    DataColumn(label: Text('Ism')),
-                    DataColumn(label: Text('Kirish')),
-                    DataColumn(label: Text('Chiqish')),
-                    DataColumn(label: Text('Daqiqa')),
-                    DataColumn(label: Text('Kamera')),
-                    DataColumn(label: Text('Mikrofon')),
+                  columns: [
+                    DataColumn(label: Text(ref.t('mobile.table.name'))),
+                    DataColumn(label: Text(ref.t('mobile.table.joined'))),
+                    DataColumn(label: Text(ref.t('mobile.table.left'))),
+                    DataColumn(label: Text(ref.t('mobile.table.minutes'))),
+                    DataColumn(label: Text(ref.t('mobile.table.camera'))),
+                    DataColumn(label: Text(ref.t('mobile.table.mic'))),
                   ],
                   rows: [
                     for (final p in rows)
@@ -1316,10 +1322,10 @@ class _MeetingManageScreenState extends ConsumerState<MeetingManageScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SectionHeading('Transkript'),
+          SectionHeading(ref.t('mobile.manage.transcriptHeading')),
           const SizedBox(height: 14),
           if (t == null)
-            _emptyRow('Transkript ma\'lumoti mavjud emas.')
+            _emptyRow(ref.t('mobile.manage.transcriptNone'))
           else if (!t.allowed)
             _transcriptGated()
           else
@@ -1340,15 +1346,15 @@ class _MeetingManageScreenState extends ConsumerState<MeetingManageScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(Icons.workspace_premium_outlined,
+              const Icon(Icons.workspace_premium_outlined,
                   size: 20, color: AppColors.brand600),
-              SizedBox(width: 8),
+              const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'Transkript premium tariflarda mavjud.',
-                  style: TextStyle(
+                  ref.t('mobile.manage.transcriptGated'),
+                  style: const TextStyle(
                       fontWeight: FontWeight.w600,
                       color: AppColors.brand700),
                 ),
@@ -1359,7 +1365,7 @@ class _MeetingManageScreenState extends ConsumerState<MeetingManageScreen> {
           SizedBox(
             width: 180,
             child: GradientButton(
-              label: 'Tarifni ko\'rish',
+              label: ref.t('mobile.manage.viewPlan'),
               icon: Icons.arrow_forward_rounded,
               onPressed: () => context.go('/billing'),
             ),
@@ -1380,10 +1386,14 @@ class _MeetingManageScreenState extends ConsumerState<MeetingManageScreen> {
         children: [
           Row(
             children: [
-              const StatusChip(label: 'Tayyor', color: AppColors.brand600),
+              StatusChip(
+                  label: ref.t('mobile.manage.transcriptReady'),
+                  color: AppColors.brand600),
               if (t.language != null) ...[
                 const SizedBox(width: 8),
-                Text('Til: ${t.language}',
+                Text(
+                    ref.t('mobile.manage.transcriptLang',
+                        {'language': '${t.language}'}),
                     style: const TextStyle(
                         fontSize: 12, color: AppColors.slate500)),
               ],
@@ -1445,22 +1455,22 @@ class _MeetingManageScreenState extends ConsumerState<MeetingManageScreen> {
               const SizedBox(width: 10),
               Text(
                 status == 'pending'
-                    ? 'Navbatda…'
-                    : 'Tayyorlanmoqda…',
+                    ? ref.t('mobile.manage.transcriptQueued')
+                    : ref.t('mobile.manage.transcriptProcessing'),
                 style: const TextStyle(color: AppColors.slate600),
               ),
             ],
           )
         else
-          const Text(
-            'Uchrashuv matnini avtomatik tayyorlash.',
-            style: TextStyle(color: AppColors.slate600),
+          Text(
+            ref.t('mobile.manage.transcriptIntro'),
+            style: const TextStyle(color: AppColors.slate600),
           ),
         const SizedBox(height: 14),
         SizedBox(
           width: 220,
           child: GradientButton(
-            label: 'Transkript yaratish',
+            label: ref.t('mobile.manage.generateTranscript'),
             icon: Icons.notes_rounded,
             busy: _busyTranscribe,
             onPressed:

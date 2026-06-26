@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/i18n/i18n_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/floating_node_motif.dart';
 import '../../core/widgets/gradient_button.dart';
@@ -13,18 +14,15 @@ import '../../core/widgets/mesh_glow_background.dart';
 import '../../core/widgets/reveal.dart';
 
 class _Page {
-  const _Page(this.title, this.sub);
-  final String title;
-  final String sub;
+  const _Page(this.titleKey, this.subKey);
+  final String titleKey;
+  final String subKey;
 }
 
 const _pages = [
-  _Page('Hammasi bitta ulanishda',
-      'ALOQA — video qo\'ng\'iroqlar, suhbatlar va jamoa uchun yagona makon. Tez, sodda, ishonchli.'),
-  _Page('Yuzma-yuz, masofadan',
-      'HD video va aniq ovoz bilan suhbatlashing. Bir tugma — va siz birgasiz, qayerda bo\'lishingizdan qat\'i nazar.'),
-  _Page('Jamoangizni birlashtiring',
-      'Yig\'ilishlar, guruh chatlari va xavfsiz aloqa. Hoziroq boshlang — bir necha soniyada.'),
+  _Page('mobile.onboarding.p1.title', 'mobile.onboarding.p1.sub'),
+  _Page('mobile.onboarding.p2.title', 'mobile.onboarding.p2.sub'),
+  _Page('mobile.onboarding.p3.title', 'mobile.onboarding.p3.sub'),
 ];
 
 class OnboardingScreen extends ConsumerStatefulWidget {
@@ -79,8 +77,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     if (!last)
                       TextButton(
                         onPressed: () => context.go('/login'),
-                        child: const Text('O\'tkazib yuborish',
-                            style: TextStyle(color: AppColors.slate500, fontSize: 14, fontWeight: FontWeight.w500)),
+                        child: Text(ref.t('mobile.onboarding.skip'),
+                            style: const TextStyle(color: AppColors.slate500, fontSize: 14, fontWeight: FontWeight.w500)),
                       ),
                   ],
                 ),
@@ -102,14 +100,14 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                           durationMs: 420,
                           child: Column(
                             children: [
-                              Text(_pages[i].title,
+                              Text(ref.t(_pages[i].titleKey),
                                   textAlign: TextAlign.center,
                                   style: const TextStyle(
                                       fontSize: 28, fontWeight: FontWeight.w800, color: AppColors.slate900, letterSpacing: -0.5)),
                               const SizedBox(height: 14),
                               ConstrainedBox(
                                 constraints: const BoxConstraints(maxWidth: 320),
-                                child: Text(_pages[i].sub,
+                                child: Text(ref.t(_pages[i].subKey),
                                     textAlign: TextAlign.center,
                                     style: const TextStyle(fontSize: 16, color: AppColors.slate500, height: 1.5)),
                               ),
@@ -143,7 +141,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 28),
                 child: GradientButton(
-                  label: last ? 'Boshlash' : 'Davom etish',
+                  label: last ? ref.t('landing.cta.start') : ref.t('action.continue'),
                   icon: last ? null : Icons.arrow_forward_rounded,
                   onPressed: _next,
                 ),
@@ -152,11 +150,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text('Hisobingiz yo\'qmi? ', style: TextStyle(color: AppColors.slate500, fontSize: 14)),
+                  Text(ref.t('auth.noAccount'), style: const TextStyle(color: AppColors.slate500, fontSize: 14)),
                   GestureDetector(
                     onTap: () => context.go('/register'),
-                    child: const Text('Ro\'yxatdan o\'tish',
-                        style: TextStyle(color: AppColors.brand600, fontWeight: FontWeight.w600, fontSize: 14)),
+                    child: Text(ref.t('action.register'),
+                        style: const TextStyle(color: AppColors.brand600, fontWeight: FontWeight.w600, fontSize: 14)),
                   ),
                 ],
               ),

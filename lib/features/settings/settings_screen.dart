@@ -106,7 +106,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _loadError = cached == null ? 'Xatolik yuz berdi' : null;
+        _loadError = cached == null ? ref.tt('common.error') : null;
       });
     }
   }
@@ -145,15 +145,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       if (!mounted) return;
       ref.read(authProvider.notifier).setUser(updated);
       setState(() => _savingPersonal = false);
-      _transient((v) => setState(() => _personalNote = v), '✓ Saqlandi',
+      _transient((v) => setState(() => _personalNote = v), ref.tt('mobile.settings.savedNote'),
           const Duration(milliseconds: 2500));
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _savingPersonal = false;
-        _personalError = 'Xatolik yuz berdi';
+        _personalError = ref.tt('common.error');
       });
-      _snack('Xatolik yuz berdi');
+      _snack(ref.tt('common.error'));
     }
   }
 
@@ -168,11 +168,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     // Client validation BEFORE the call.
     if (next.length < 8) {
-      setState(() => _passwordError = 'Yangi parol kamida 8 belgi bo\'lsin');
+      setState(() => _passwordError = ref.tt('mobile.validation.newPasswordMin'));
       return;
     }
     if (next != confirm) {
-      setState(() => _passwordError = 'Parollar mos kelmadi');
+      setState(() => _passwordError = ref.tt('mobile.validation.passwordMismatch'));
       return;
     }
 
@@ -191,14 +191,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         _savingPassword = false;
         _hasPassword = true;
       });
-      _transient((v) => setState(() => _passwordNote = v), '✓ Parol yangilandi',
+      _transient((v) => setState(() => _passwordNote = v), ref.tt('mobile.settings.passwordUpdatedNote'),
           const Duration(seconds: 3));
     } on DioException catch (e) {
       if (!mounted) return;
       final data = e.response?.data;
       final msg = (data is Map && data['message'] != null)
           ? data['message'].toString()
-          : 'Parolni o\'zgartirib bo\'lmadi';
+          : ref.tt('mobile.settings.passwordChangeFailed');
       setState(() {
         _savingPassword = false;
         _passwordError = msg;
@@ -207,7 +207,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       if (!mounted) return;
       setState(() {
         _savingPassword = false;
-        _passwordError = 'Parolni o\'zgartirib bo\'lmadi';
+        _passwordError = ref.tt('mobile.settings.passwordChangeFailed');
       });
     }
   }
@@ -241,7 +241,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       if (!mounted) return;
       ref.invalidate(sessionsProvider);
     } catch (_) {
-      _snack('Xatolik yuz berdi');
+      _snack(ref.tt('common.error'));
     }
   }
 
@@ -271,10 +271,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       content = Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const RevealUp(
+          RevealUp(
             child: Text(
-              'Sozlamalar',
-              style: TextStyle(
+              ref.t('settings.title'),
+              style: const TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
                 color: AppColors.slate900,
@@ -282,11 +282,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
           ),
           const SizedBox(height: 6),
-          const RevealUp(
+          RevealUp(
             delayMs: 40,
             child: Text(
-              'Hisob, xavfsizlik va til sozlamalari',
-              style: TextStyle(fontSize: 14, color: AppColors.slate500),
+              ref.t('mobile.settings.subtitle'),
+              style: const TextStyle(fontSize: 14, color: AppColors.slate500),
             ),
           ),
           const SizedBox(height: 20),
@@ -307,7 +307,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             child: SizedBox(
               width: double.infinity,
               child: _DangerGhostButton(
-                label: 'Chiqish',
+                label: ref.t('action.logout'),
                 icon: Icons.logout_rounded,
                 onPressed: _logout,
               ),
@@ -330,11 +330,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SectionHeading('Shaxsiy ma\'lumotlar'),
+          SectionHeading(ref.t('mobile.settings.personalHeading')),
           const SizedBox(height: 4),
-          const Text(
-            'Ism, familiya va boshqa ma\'lumotlaringiz',
-            style: TextStyle(fontSize: 13, color: AppColors.slate500),
+          Text(
+            ref.t('mobile.settings.personalSub'),
+            style: const TextStyle(fontSize: 13, color: AppColors.slate500),
           ),
           const SizedBox(height: 16),
           LayoutBuilder(
@@ -342,15 +342,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               final twoCol = c.maxWidth >= 520;
               final firstField = AloqaInput(
                 controller: _firstName,
-                label: 'Ism',
-                hint: 'Ismingiz',
+                label: ref.t('mobile.field.firstName'),
+                hint: ref.t('mobile.field.firstNameHint'),
                 prefixIcon: Icons.person_outline_rounded,
                 textCapitalization: TextCapitalization.words,
               );
               final lastField = AloqaInput(
                 controller: _lastName,
-                label: 'Familiya',
-                hint: 'Familiyangiz',
+                label: ref.t('mobile.field.lastName'),
+                hint: ref.t('mobile.field.lastNameHint'),
                 prefixIcon: Icons.badge_outlined,
                 textCapitalization: TextCapitalization.words,
               );
@@ -374,9 +374,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             },
           ),
           const SizedBox(height: 16),
-          const Text(
-            'Jins',
-            style: TextStyle(
+          Text(
+            ref.t('mobile.field.gender'),
+            style: const TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
               color: AppColors.slate700,
@@ -387,7 +387,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             children: [
               Expanded(
                 child: _GenderToggle(
-                  label: 'Erkak',
+                  label: ref.t('mobile.gender.male'),
                   icon: Icons.male_rounded,
                   selected: _gender == 'male',
                   onTap: () => setState(() => _gender = 'male'),
@@ -396,7 +396,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               const SizedBox(width: 12),
               Expanded(
                 child: _GenderToggle(
-                  label: 'Ayol',
+                  label: ref.t('mobile.gender.female'),
                   icon: Icons.female_rounded,
                   selected: _gender == 'female',
                   onTap: () => setState(() => _gender = 'female'),
@@ -407,8 +407,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           const SizedBox(height: 16),
           AloqaInput(
             controller: _birthday,
-            label: 'Tug\'ilgan sana',
-            hint: 'YYYY-MM-DD',
+            label: ref.t('mobile.field.birthday'),
+            hint: ref.t('mobile.field.birthdayHint'),
             prefixIcon: Icons.cake_outlined,
             keyboardType: TextInputType.datetime,
             suffixIcon: IconButton(
@@ -423,7 +423,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             const SizedBox(height: 12),
           ],
           GradientButton(
-            label: 'Saqlash',
+            label: ref.t('action.save'),
             icon: Icons.check_rounded,
             busy: _savingPersonal,
             onPressed: _savingPersonal ? null : _savePersonal,
@@ -448,7 +448,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       initialDate: initial,
       firstDate: DateTime(1920),
       lastDate: now,
-      helpText: 'Tug\'ilgan sanani tanlang',
+      helpText: ref.tt('mobile.settings.pickBirthday'),
     );
     if (picked == null) return;
     final m = picked.month.toString().padLeft(2, '0');
@@ -462,7 +462,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SectionHeading('Parol va xavfsizlik'),
+          SectionHeading(ref.t('mobile.settings.passwordHeading')),
           const SizedBox(height: 12),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -479,9 +479,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Login (email)',
-                        style: TextStyle(
+                      Text(
+                        ref.t('mobile.settings.loginEmail'),
+                        style: const TextStyle(
                             fontSize: 12, color: AppColors.slate500),
                       ),
                       const SizedBox(height: 2),
@@ -503,8 +503,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           if (_hasPassword) ...[
             AloqaInput(
               controller: _currentPw,
-              label: 'Joriy parol',
-              hint: '••••••••',
+              label: ref.t('mobile.field.currentPassword'),
+              hint: ref.t('mobile.login.passwordHint'),
               prefixIcon: Icons.lock_outline_rounded,
               obscureText: !_showCurrent,
               suffixIcon: _eyeToggle(
@@ -516,8 +516,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ],
           AloqaInput(
             controller: _newPw,
-            label: 'Yangi parol',
-            hint: 'Kamida 8 belgi',
+            label: ref.t('mobile.field.newPassword'),
+            hint: ref.t('mobile.field.newPasswordHint'),
             prefixIcon: Icons.lock_reset_rounded,
             obscureText: !_showNew,
             suffixIcon: _eyeToggle(
@@ -528,8 +528,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           const SizedBox(height: 14),
           AloqaInput(
             controller: _confirmPw,
-            label: 'Parolni tasdiqlang',
-            hint: 'Yangi parolni qayta kiriting',
+            label: ref.t('mobile.field.confirmPassword'),
+            hint: ref.t('mobile.field.confirmPasswordHint'),
             prefixIcon: Icons.lock_outline_rounded,
             obscureText: !_showConfirm,
             suffixIcon: _eyeToggle(
@@ -543,7 +543,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             const SizedBox(height: 12),
           ],
           GradientButton(
-            label: _hasPassword ? 'Parolni yangilash' : 'Parol o\'rnatish',
+            label: _hasPassword
+                ? ref.t('mobile.settings.updatePassword')
+                : ref.t('mobile.settings.setPassword'),
             icon: Icons.shield_outlined,
             busy: _savingPassword,
             onPressed: _savingPassword ? null : _savePassword,
@@ -578,11 +580,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SectionHeading('Til'),
+          SectionHeading(ref.t('mobile.settings.languageHeading')),
           const SizedBox(height: 4),
-          const Text(
-            'Ilova interfeysi tilini tanlang',
-            style: TextStyle(fontSize: 13, color: AppColors.slate500),
+          Text(
+            ref.t('mobile.settings.languageSub'),
+            style: const TextStyle(fontSize: 13, color: AppColors.slate500),
           ),
           const SizedBox(height: 16),
           if (languages.isEmpty)
@@ -618,18 +620,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SectionHeading(
-            'Faol seanslar',
+            ref.t('mobile.settings.sessionsHeading'),
             trailing: IconButton(
               icon: const Icon(Icons.refresh_rounded,
                   size: 18, color: AppColors.slate400),
-              tooltip: 'Yangilash',
+              tooltip: ref.t('mobile.settings.sessionsRefresh'),
               onPressed: () => ref.invalidate(sessionsProvider),
             ),
           ),
           const SizedBox(height: 4),
-          const Text(
-            'Hisobingizga kirgan qurilmalar',
-            style: TextStyle(fontSize: 13, color: AppColors.slate500),
+          Text(
+            ref.t('mobile.settings.sessionsSub'),
+            style: const TextStyle(fontSize: 13, color: AppColors.slate500),
           ),
           const SizedBox(height: 16),
           sessionsAsync.when(
@@ -645,7 +647,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
             ),
             error: (_, __) =>
-                const InlineErrorBanner(message: 'Xatolik yuz berdi'),
+                InlineErrorBanner(message: ref.t('common.error')),
             data: (sessions) {
               if (sessions.isEmpty) {
                 return const Text(
@@ -658,12 +660,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   for (var i = 0; i < sessions.length; i++) ...[
                     _SessionRow(
                       title: (sessions[i].userAgent ?? '').isEmpty
-                          ? 'Qurilma'
+                          ? ref.t('mobile.settings.deviceFallback')
                           : sessions[i].userAgent!,
                       subtitle: (sessions[i].ip ?? '').isEmpty
                           ? null
                           : sessions[i].ip,
                       isCurrent: sessions[i].isCurrent,
+                      thisDeviceLabel: ref.t('mobile.settings.thisDevice'),
+                      revokeLabel: ref.t('mobile.settings.revoke'),
                       onRevoke: sessions[i].isCurrent
                           ? null
                           : () => _revokeSession(sessions[i].id),
@@ -840,6 +844,8 @@ class _SessionRow extends StatelessWidget {
   const _SessionRow({
     required this.title,
     required this.onRevoke,
+    required this.thisDeviceLabel,
+    required this.revokeLabel,
     this.subtitle,
     this.isCurrent = false,
   });
@@ -848,6 +854,8 @@ class _SessionRow extends StatelessWidget {
   final String? subtitle;
   final VoidCallback? onRevoke;
   final bool isCurrent;
+  final String thisDeviceLabel;
+  final String revokeLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -899,9 +907,9 @@ class _SessionRow extends StatelessWidget {
               color: AppColors.brand50,
               borderRadius: BorderRadius.circular(999),
             ),
-            child: const Text(
-              'Bu qurilma (siz)',
-              style: TextStyle(
+            child: Text(
+              thisDeviceLabel,
+              style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                   color: AppColors.brand700),
@@ -916,9 +924,9 @@ class _SessionRow extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 12),
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
-            child: const Text(
-              'Chiqarish',
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+            child: Text(
+              revokeLabel,
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
             ),
           ),
       ],

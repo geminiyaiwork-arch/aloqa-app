@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import 'package:aloqa/core/i18n/i18n_service.dart';
 import 'package:aloqa/core/theme/app_theme.dart';
 import 'package:aloqa/core/widgets/aloqa_card.dart';
 import 'package:aloqa/core/widgets/aloqa_input.dart';
@@ -69,7 +70,8 @@ class _WebinarRegistrationScreenState
       setState(() => _busy = false);
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(const SnackBar(content: Text('Xatolik yuz berdi')));
+        ..showSnackBar(
+            SnackBar(content: Text(ref.tt('common.error'))));
     }
   }
 
@@ -151,7 +153,7 @@ class _WebinarRegistrationScreenState
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'WEBINAR',
+            ref.t('mobile.webinar.badge'),
             style: TextStyle(
               color: Colors.white.withOpacity(0.85),
               fontSize: 12,
@@ -223,7 +225,8 @@ class _WebinarRegistrationScreenState
                     size: 14, color: Colors.white.withOpacity(0.95)),
                 const SizedBox(width: 6),
                 Text(
-                  '${info.registered} ro\'yxatdan o\'tgan',
+                  ref.t('mobile.webinar.registeredCount',
+                      {'count': '${info.registered}'}),
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 12,
@@ -243,18 +246,18 @@ class _WebinarRegistrationScreenState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Text(
-          'Webinarga ro\'yxatdan o\'ting',
-          style: TextStyle(
+        Text(
+          ref.t('mobile.webinar.registerTitle'),
+          style: const TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.bold,
             color: AppColors.slate900,
           ),
         ),
         const SizedBox(height: 4),
-        const Text(
-          'Ma\'lumotlaringizni kiriting va joyingizni band qiling.',
-          style: TextStyle(
+        Text(
+          ref.t('mobile.webinar.registerSub'),
+          style: const TextStyle(
             fontSize: 14,
             color: AppColors.slate500,
             fontWeight: FontWeight.w500,
@@ -263,30 +266,30 @@ class _WebinarRegistrationScreenState
         const SizedBox(height: 20),
         AloqaInput(
           controller: _nameCtl,
-          label: 'Ism *',
-          hint: 'To\'liq ismingiz',
+          label: ref.t('mobile.webinar.nameLabel'),
+          hint: ref.t('mobile.webinar.nameHint'),
           prefixIcon: Icons.person_outline,
           textCapitalization: TextCapitalization.words,
         ),
         const SizedBox(height: 14),
         AloqaInput(
           controller: _emailCtl,
-          label: 'Email',
-          hint: 'email@example.com',
+          label: ref.t('auth.email'),
+          hint: ref.t('mobile.webinar.emailHint'),
           prefixIcon: Icons.alternate_email,
           keyboardType: TextInputType.emailAddress,
         ),
         const SizedBox(height: 14),
         AloqaInput(
           controller: _phoneCtl,
-          label: 'Telefon',
-          hint: '+998 90 123 45 67',
+          label: ref.t('mobile.field.phone'),
+          hint: ref.t('mobile.field.phoneHint'),
           prefixIcon: Icons.phone_outlined,
           keyboardType: TextInputType.phone,
         ),
         const SizedBox(height: 22),
         GradientButton(
-          label: _busy ? 'Yuborilmoqda...' : 'Ro\'yxatdan o\'tish',
+          label: _busy ? ref.t('mobile.webinar.submitting') : ref.t('mobile.webinar.register'),
           icon: _busy ? null : Icons.how_to_reg_outlined,
           busy: _busy,
           onPressed: nameEmpty ? null : () => _submit(info),
@@ -313,21 +316,20 @@ class _WebinarRegistrationScreenState
           ),
         ),
         const SizedBox(height: 18),
-        const Text(
-          'Ro\'yxatdan o\'tdingiz!',
+        Text(
+          ref.t('mobile.webinar.doneTitle'),
           textAlign: TextAlign.center,
-          style: TextStyle(
+          style: const TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
             color: AppColors.slate900,
           ),
         ),
         const SizedBox(height: 8),
-        const Text(
-          'Webinar boshlanganda qo\'shilishingiz mumkin. '
-          'Sizga eslatma yuboramiz.',
+        Text(
+          ref.t('mobile.webinar.doneSub'),
           textAlign: TextAlign.center,
-          style: TextStyle(
+          style: const TextStyle(
             fontSize: 14,
             color: AppColors.slate500,
             fontWeight: FontWeight.w500,
@@ -336,7 +338,7 @@ class _WebinarRegistrationScreenState
         ),
         const SizedBox(height: 24),
         GradientButton(
-          label: 'Qo\'shilish',
+          label: ref.t('mobile.webinar.join'),
           icon: Icons.video_call_outlined,
           onPressed: info.code.trim().isEmpty
               ? null
@@ -347,9 +349,9 @@ class _WebinarRegistrationScreenState
   }
 }
 
-class _NotFound extends StatelessWidget {
+class _NotFound extends ConsumerWidget {
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -374,20 +376,20 @@ class _NotFound extends StatelessWidget {
                       size: 30, color: AppColors.slate400),
                 ),
                 const SizedBox(height: 16),
-                const Text(
-                  'Webinar topilmadi.',
+                Text(
+                  ref.t('mobile.webinar.notFound'),
                   textAlign: TextAlign.center,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                     color: AppColors.slate900,
                   ),
                 ),
                 const SizedBox(height: 6),
-                const Text(
-                  'Havola noto\'g\'ri yoki webinar bekor qilingan bo\'lishi mumkin.',
+                Text(
+                  ref.t('mobile.webinar.notFoundSub'),
                   textAlign: TextAlign.center,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 14,
                     color: AppColors.slate500,
                     fontWeight: FontWeight.w500,

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/i18n/i18n_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/aloqa_input.dart';
 import '../../core/widgets/aloqa_logo.dart';
@@ -54,7 +55,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       setState(() => _termsShake++);
       ScaffoldMessenger.of(context)
         ..clearSnackBars()
-        ..showSnackBar(const SnackBar(content: Text('Shartlarga rozilik bering')));
+        ..showSnackBar(SnackBar(content: Text(ref.tt('mobile.register.agreeRequired'))));
       return;
     }
     if (_formKey.currentState?.validate() ?? false) {
@@ -68,7 +69,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     final auth = ref.watch(authProvider);
     final s = _strength();
     final strengthColor = s <= 1 ? AppColors.danger : (s == 2 ? AppColors.brand400 : AppColors.brand600);
-    final strengthLabel = s <= 1 ? 'Zaif' : (s == 2 ? 'O\'rtacha' : 'Kuchli');
+    final strengthLabel = s <= 1
+        ? ref.t('mobile.strength.weak')
+        : (s == 2 ? ref.t('mobile.strength.medium') : ref.t('mobile.strength.strong'));
     final strengthFrac = _password.text.isEmpty ? 0.0 : (s <= 1 ? 0.33 : (s == 2 ? 0.66 : 1.0));
 
     return Scaffold(
@@ -98,42 +101,42 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                         children: [
                           const RevealUp(delayMs: 0, child: Center(child: AloqaLogo(size: 56, showWordmark: true))),
                           const SizedBox(height: 18),
-                          const RevealUp(
+                          RevealUp(
                             delayMs: 60,
-                            child: Text('Hisob yarating',
+                            child: Text(ref.t('auth.register.title'),
                                 textAlign: TextAlign.center,
-                                style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: AppColors.slate900)),
+                                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: AppColors.slate900)),
                           ),
                           const SizedBox(height: 6),
-                          const RevealUp(
+                          RevealUp(
                             delayMs: 100,
-                            child: Text('ALOQA\'ga bir daqiqada qo\'shiling',
+                            child: Text(ref.t('mobile.register.subtitle'),
                                 textAlign: TextAlign.center,
-                                style: TextStyle(fontSize: 14, color: AppColors.slate500)),
+                                style: const TextStyle(fontSize: 14, color: AppColors.slate500)),
                           ),
                           const SizedBox(height: 22),
                           RevealUp(
                             delayMs: 140,
                             child: GhostButton(
-                              label: 'Google bilan ro\'yxatdan o\'tish',
+                              label: ref.t('mobile.register.googleSignup'),
                               leading: const GoogleMark(),
                               onPressed: auth.busy ? null : () => ref.read(authProvider.notifier).loginWithGoogle(),
                             ),
                           ),
                           const SizedBox(height: 16),
-                          const _OrDivider(),
+                          _OrDivider(ref: ref),
                           const SizedBox(height: 16),
                           RevealUp(
                             delayMs: 180,
                             child: AloqaInput(
                               controller: _name,
-                              label: 'To\'liq ism',
-                              hint: 'Ismingiz',
+                              label: ref.t('auth.name'),
+                              hint: ref.t('mobile.register.nameHint'),
                               prefixIcon: Icons.person_outline,
                               textCapitalization: TextCapitalization.words,
                               validator: (v) {
-                                if (v == null || v.trim().isEmpty) return 'Ismingizni kiriting';
-                                if (v.trim().length < 2) return 'Ism juda qisqa';
+                                if (v == null || v.trim().isEmpty) return ref.tt('mobile.validation.nameRequired');
+                                if (v.trim().length < 2) return ref.tt('mobile.validation.nameShort');
                                 return null;
                               },
                             ),
@@ -143,12 +146,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                             delayMs: 220,
                             child: AloqaInput(
                               controller: _email,
-                              label: 'Email',
-                              hint: 'siz@example.com',
+                              label: ref.t('auth.email'),
+                              hint: ref.t('mobile.login.emailHint'),
                               prefixIcon: Icons.mail_outline,
                               keyboardType: TextInputType.emailAddress,
                               validator: (v) => (v == null || !RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(v))
-                                  ? 'Email noto\'g\'ri'
+                                  ? ref.tt('mobile.validation.emailInvalid')
                                   : null,
                             ),
                           ),
@@ -157,8 +160,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                             delayMs: 260,
                             child: AloqaInput(
                               controller: _password,
-                              label: 'Parol',
-                              hint: 'Kamida 6 ta belgi',
+                              label: ref.t('auth.password'),
+                              hint: ref.t('mobile.register.passwordHint'),
                               prefixIcon: Icons.lock_outline,
                               obscureText: _obscure,
                               onChanged: (_) => setState(() {}),
@@ -174,7 +177,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                 ),
                                 onPressed: () => setState(() => _obscure = !_obscure),
                               ),
-                              validator: (v) => (v == null || v.length < 6) ? 'Parol kamida 6 ta belgi' : null,
+                              validator: (v) => (v == null || v.length < 6) ? ref.tt('mobile.validation.passwordMin') : null,
                             ),
                           ),
                           const SizedBox(height: 10),
@@ -219,18 +222,18 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                   ),
                                 ),
                                 const SizedBox(width: 8),
-                                const Expanded(
+                                Expanded(
                                   child: Padding(
-                                    padding: EdgeInsets.only(top: 2),
+                                    padding: const EdgeInsets.only(top: 2),
                                     child: Text.rich(
                                       TextSpan(
-                                        style: TextStyle(fontSize: 12, color: AppColors.slate500),
+                                        style: const TextStyle(fontSize: 12, color: AppColors.slate500),
                                         children: [
-                                          TextSpan(text: 'Men '),
-                                          TextSpan(text: 'Foydalanish shartlari', style: TextStyle(color: AppColors.brand600, fontWeight: FontWeight.w500)),
-                                          TextSpan(text: ' va '),
-                                          TextSpan(text: 'Maxfiylik siyosati', style: TextStyle(color: AppColors.brand600, fontWeight: FontWeight.w500)),
-                                          TextSpan(text: 'ga roziman'),
+                                          TextSpan(text: ref.t('mobile.register.agreePrefix')),
+                                          TextSpan(text: ref.t('mobile.register.terms'), style: const TextStyle(color: AppColors.brand600, fontWeight: FontWeight.w500)),
+                                          TextSpan(text: ref.t('mobile.register.and')),
+                                          TextSpan(text: ref.t('mobile.register.privacy'), style: const TextStyle(color: AppColors.brand600, fontWeight: FontWeight.w500)),
+                                          TextSpan(text: ref.t('mobile.register.agreeSuffix')),
                                         ],
                                       ),
                                     ),
@@ -243,7 +246,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                           InlineErrorBanner(message: auth.error),
                           const SizedBox(height: 12),
                           GradientButton(
-                            label: 'Ro\'yxatdan o\'tish',
+                            label: ref.t('action.register'),
                             busy: auth.busy,
                             onPressed: _submit,
                           ),
@@ -251,11 +254,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Text('Hisobingiz bormi? ', style: TextStyle(color: AppColors.slate500)),
+                              Text(ref.t('auth.haveAccount'), style: const TextStyle(color: AppColors.slate500)),
                               GestureDetector(
                                 onTap: () => context.go('/login'),
-                                child: const Text('Kirish',
-                                    style: TextStyle(color: AppColors.brand600, fontWeight: FontWeight.w600)),
+                                child: Text(ref.t('action.login'),
+                                    style: const TextStyle(color: AppColors.brand600, fontWeight: FontWeight.w600)),
                               ),
                             ],
                           ),
@@ -274,16 +277,17 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 }
 
 class _OrDivider extends StatelessWidget {
-  const _OrDivider();
+  const _OrDivider({required this.ref});
+  final WidgetRef ref;
   @override
   Widget build(BuildContext context) {
-    return const Row(children: [
-      Expanded(child: Divider(color: AppColors.slate200)),
+    return Row(children: [
+      const Expanded(child: Divider(color: AppColors.slate200)),
       Padding(
-        padding: EdgeInsets.symmetric(horizontal: 12),
-        child: Text('yoki', style: TextStyle(color: AppColors.slate400, fontSize: 12)),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: Text(ref.t('auth.or'), style: const TextStyle(color: AppColors.slate400, fontSize: 12)),
       ),
-      Expanded(child: Divider(color: AppColors.slate200)),
+      const Expanded(child: Divider(color: AppColors.slate200)),
     ]);
   }
 }

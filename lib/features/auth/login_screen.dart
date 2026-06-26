@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/i18n/i18n_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/aloqa_input.dart';
 import '../../core/widgets/aloqa_logo.dart';
@@ -62,24 +63,24 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     children: [
                       const RevealUp(delayMs: 0, child: Center(child: AloqaLogo(size: 64, showWordmark: true))),
                       const SizedBox(height: 20),
-                      const RevealUp(
+                      RevealUp(
                         delayMs: 60,
-                        child: Text('Xush kelibsiz',
+                        child: Text(ref.t('auth.login.title'),
                             textAlign: TextAlign.center,
-                            style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: AppColors.slate900)),
+                            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: AppColors.slate900)),
                       ),
                       const SizedBox(height: 6),
-                      const RevealUp(
+                      RevealUp(
                         delayMs: 100,
-                        child: Text('Hisobingizga kiring',
+                        child: Text(ref.t('auth.login.subtitle'),
                             textAlign: TextAlign.center,
-                            style: TextStyle(fontSize: 14, color: AppColors.slate500)),
+                            style: const TextStyle(fontSize: 14, color: AppColors.slate500)),
                       ),
                       const SizedBox(height: 24),
                       RevealUp(
                         delayMs: 140,
                         child: GhostButton(
-                          label: 'Google bilan kirish',
+                          label: ref.t('auth.google'),
                           leading: const GoogleMark(),
                           onPressed: auth.busy ? null : () => ref.read(authProvider.notifier).loginWithGoogle(),
                         ),
@@ -91,12 +92,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         delayMs: 180,
                         child: AloqaInput(
                           controller: _email,
-                          label: 'Email',
-                          hint: 'siz@example.com',
+                          label: ref.t('auth.email'),
+                          hint: ref.t('mobile.login.emailHint'),
                           prefixIcon: Icons.mail_outline,
                           keyboardType: TextInputType.emailAddress,
                           validator: (v) => (v == null || !RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(v))
-                              ? 'Email noto\'g\'ri'
+                              ? ref.tt('mobile.validation.emailInvalid')
                               : null,
                         ),
                       ),
@@ -105,8 +106,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         delayMs: 220,
                         child: AloqaInput(
                           controller: _password,
-                          label: 'Parol',
-                          hint: '••••••••',
+                          label: ref.t('auth.password'),
+                          hint: ref.t('mobile.login.passwordHint'),
                           prefixIcon: Icons.lock_outline,
                           obscureText: _obscure,
                           suffixIcon: IconButton(
@@ -121,7 +122,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             ),
                             onPressed: () => setState(() => _obscure = !_obscure),
                           ),
-                          validator: (v) => (v == null || v.length < 6) ? 'Parol kamida 6 ta belgi' : null,
+                          validator: (v) => (v == null || v.length < 6) ? ref.tt('mobile.validation.passwordMin') : null,
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -131,25 +132,25 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           onPressed: () {
                             ScaffoldMessenger.of(context)
                               ..clearSnackBars()
-                              ..showSnackBar(const SnackBar(content: Text('Tez kunda')));
+                              ..showSnackBar(SnackBar(content: Text(ref.tt('common.soon'))));
                           },
-                          child: const Text('Parolni unutdingizmi?',
-                              style: TextStyle(fontSize: 13, color: AppColors.brand600, fontWeight: FontWeight.w500)),
+                          child: Text(ref.t('auth.forgot'),
+                              style: const TextStyle(fontSize: 13, color: AppColors.brand600, fontWeight: FontWeight.w500)),
                         ),
                       ),
                       const SizedBox(height: 8),
                       InlineErrorBanner(message: auth.error),
                       const SizedBox(height: 12),
-                      GradientButton(label: 'Kirish', busy: auth.busy, onPressed: _submit),
+                      GradientButton(label: ref.t('action.login'), busy: auth.busy, onPressed: _submit),
                       const SizedBox(height: 20),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Text('Hisobingiz yo\'qmi? ', style: TextStyle(color: AppColors.slate500)),
+                          Text(ref.t('auth.noAccount'), style: const TextStyle(color: AppColors.slate500)),
                           GestureDetector(
                             onTap: () => context.go('/register'),
-                            child: const Text('Ro\'yxatdan o\'tish',
-                                style: TextStyle(color: AppColors.brand600, fontWeight: FontWeight.w600)),
+                            child: Text(ref.t('action.register'),
+                                style: const TextStyle(color: AppColors.brand600, fontWeight: FontWeight.w600)),
                           ),
                         ],
                       ),
@@ -165,17 +166,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 }
 
-class _OrDivider extends StatelessWidget {
+class _OrDivider extends ConsumerWidget {
   const _OrDivider();
   @override
-  Widget build(BuildContext context) {
-    return const Row(children: [
-      Expanded(child: Divider(color: AppColors.slate200)),
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Row(children: [
+      const Expanded(child: Divider(color: AppColors.slate200)),
       Padding(
-        padding: EdgeInsets.symmetric(horizontal: 12),
-        child: Text('yoki', style: TextStyle(color: AppColors.slate400, fontSize: 12)),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: Text(ref.t('auth.or'), style: const TextStyle(color: AppColors.slate400, fontSize: 12)),
       ),
-      Expanded(child: Divider(color: AppColors.slate200)),
+      const Expanded(child: Divider(color: AppColors.slate200)),
     ]);
   }
 }

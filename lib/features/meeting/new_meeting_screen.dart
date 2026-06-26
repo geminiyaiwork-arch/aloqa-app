@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:aloqa/core/config/app_config.dart';
+import 'package:aloqa/core/i18n/i18n_service.dart';
 import 'package:aloqa/core/theme/app_theme.dart';
 import 'package:aloqa/core/widgets/aloqa_card.dart';
 import 'package:aloqa/core/widgets/aloqa_input.dart';
@@ -61,7 +62,7 @@ class _NewMeetingScreenState extends ConsumerState<NewMeetingScreen> {
     } catch (e) {
       if (!mounted) return;
       // Server xabarini ko'rsatamiz (masalan tarif limiti)
-      String msg = 'Xatolik yuz berdi';
+      String msg = ref.tt('common.error');
       if (e is DioException && e.response?.data is Map) {
         final m = (e.response!.data as Map)['message'];
         if (m != null) msg = m.toString();
@@ -114,22 +115,22 @@ class _NewMeetingScreenState extends ConsumerState<NewMeetingScreen> {
                 child: const Icon(Icons.videocam, color: Colors.white, size: 26),
               ),
               const SizedBox(width: 14),
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Yangi konferensiya',
-                      style: TextStyle(
+                      ref.t('mobile.new.headerTitle'),
+                      style: const TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.bold,
                         color: AppColors.slate900,
                       ),
                     ),
-                    SizedBox(height: 4),
+                    const SizedBox(height: 4),
                     Text(
-                      'Bir zumda video uchrashuv yarating va havolani ulashing.',
-                      style: TextStyle(fontSize: 14, color: AppColors.slate500),
+                      ref.t('mobile.new.headerSub'),
+                      style: const TextStyle(fontSize: 14, color: AppColors.slate500),
                     ),
                   ],
                 ),
@@ -146,15 +147,15 @@ class _NewMeetingScreenState extends ConsumerState<NewMeetingScreen> {
               children: [
                 AloqaInput(
                   controller: _title,
-                  label: 'Uchrashuv nomi',
-                  hint: 'Uchrashuv nomi',
+                  label: ref.t('new.meetingTitle'),
+                  hint: ref.t('new.meetingTitle'),
                   prefixIcon: Icons.title,
                   textCapitalization: TextCapitalization.sentences,
                 ),
                 const SizedBox(height: 8),
-                const Text(
-                  'Nomi ixtiyoriy — bo\'sh qoldirsangiz standart nom beriladi.',
-                  style: TextStyle(fontSize: 12, color: AppColors.slate400),
+                Text(
+                  ref.t('mobile.new.titleOptional'),
+                  style: const TextStyle(fontSize: 12, color: AppColors.slate400),
                 ),
                 if (_error != null) ...[
                   const SizedBox(height: 16),
@@ -162,7 +163,7 @@ class _NewMeetingScreenState extends ConsumerState<NewMeetingScreen> {
                 ],
                 const SizedBox(height: 20),
                 GradientButton(
-                  label: 'Boshlash',
+                  label: ref.t('landing.cta.start'),
                   busy: _busy,
                   icon: Icons.play_arrow_rounded,
                   onPressed: _submit,
@@ -195,10 +196,10 @@ class _NewMeetingScreenState extends ConsumerState<NewMeetingScreen> {
                 child: const Icon(Icons.check, color: Colors.white, size: 26),
               ),
               const SizedBox(width: 14),
-              const Expanded(
+              Expanded(
                 child: Text(
-                  'Konferensiya yaratildi',
-                  style: TextStyle(
+                  ref.t('mobile.new.createdTitle'),
+                  style: const TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
                     color: AppColors.slate900,
@@ -216,9 +217,9 @@ class _NewMeetingScreenState extends ConsumerState<NewMeetingScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 // (A) Konferensiya ID
-                const Text(
-                  'Konferensiya ID',
-                  style: TextStyle(
+                Text(
+                  ref.t('mobile.new.conferenceId'),
+                  style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                     color: AppColors.slate500,
@@ -247,9 +248,9 @@ class _NewMeetingScreenState extends ConsumerState<NewMeetingScreen> {
                   ],
                 ),
                 const SizedBox(height: 8),
-                const Text(
-                  'Ushbu ID ni boshqalarga yuboring — ular uchrashuvga qo\'shilishi mumkin.',
-                  style: TextStyle(fontSize: 12, color: AppColors.slate400),
+                Text(
+                  ref.t('mobile.new.idHint'),
+                  style: const TextStyle(fontSize: 12, color: AppColors.slate400),
                 ),
 
                 const SizedBox(height: 24),
@@ -257,9 +258,9 @@ class _NewMeetingScreenState extends ConsumerState<NewMeetingScreen> {
                 const SizedBox(height: 24),
 
                 // (B) Taklif havolasi
-                const Text(
-                  'Taklif havolasi',
-                  style: TextStyle(
+                Text(
+                  ref.t('mobile.new.inviteLink'),
+                  style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                     color: AppColors.slate500,
@@ -295,9 +296,9 @@ class _NewMeetingScreenState extends ConsumerState<NewMeetingScreen> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                const Text(
-                  'Havola orqali kirgan mehmonlar to\'g\'ridan-to\'g\'ri kutish xonasiga tushadi.',
-                  style: TextStyle(fontSize: 12, color: AppColors.slate400),
+                Text(
+                  ref.t('mobile.new.linkHint'),
+                  style: const TextStyle(fontSize: 12, color: AppColors.slate400),
                 ),
 
                 const SizedBox(height: 24),
@@ -307,12 +308,12 @@ class _NewMeetingScreenState extends ConsumerState<NewMeetingScreen> {
                   builder: (context, constraints) {
                     final narrow = constraints.maxWidth < 420;
                     final joinBtn = GradientButton(
-                      label: 'Uchrashuvga kirish',
+                      label: ref.t('mobile.new.joinMeeting'),
                       icon: Icons.videocam,
                       onPressed: () => context.go('/lobby/$_code'),
                     );
                     final backBtn = GhostButton(
-                      label: 'Orqaga',
+                      label: ref.t('action.back'),
                       leading: const Icon(Icons.arrow_back,
                           size: 18, color: AppColors.slate600),
                       onPressed: _reset,
@@ -345,17 +346,17 @@ class _NewMeetingScreenState extends ConsumerState<NewMeetingScreen> {
   }
 }
 
-class _CopyButton extends StatefulWidget {
+class _CopyButton extends ConsumerStatefulWidget {
   const _CopyButton({required this.text, this.compact = false});
 
   final String text;
   final bool compact;
 
   @override
-  State<_CopyButton> createState() => _CopyButtonState();
+  ConsumerState<_CopyButton> createState() => _CopyButtonState();
 }
 
-class _CopyButtonState extends State<_CopyButton> {
+class _CopyButtonState extends ConsumerState<_CopyButton> {
   bool _copied = false;
 
   Future<void> _copy() async {
@@ -369,14 +370,14 @@ class _CopyButtonState extends State<_CopyButton> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Xatolik yuz berdi')),
+        SnackBar(content: Text(ref.tt('common.error'))),
       );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final label = _copied ? 'Nusxalandi' : 'Nusxalash';
+    final label = _copied ? ref.t('action.copied') : ref.t('action.copy');
     final icon = _copied ? Icons.check : Icons.copy_rounded;
     final color = _copied ? AppColors.brand600 : AppColors.slate600;
 

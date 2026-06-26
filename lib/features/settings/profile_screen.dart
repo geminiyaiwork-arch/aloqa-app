@@ -87,7 +87,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       if (!mounted) return;
       setState(() {
         _busy = false;
-        _error = 'Xatolik yuz berdi';
+        _error = ref.tt('common.error');
       });
     }
   }
@@ -131,7 +131,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       setState(() => _avatarBusy = false);
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(const SnackBar(content: Text('Rasm yuklanmadi')));
+        ..showSnackBar(
+            SnackBar(content: Text(ref.tt('mobile.profile.imageUploadFailed'))));
     }
   }
 
@@ -141,21 +142,21 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final i18n = ref.watch(i18nProvider);
 
     if (user == null) {
-      return const AloqaAppShell(
+      return AloqaAppShell(
         currentPath: '/profile',
         child: Padding(
-          padding: EdgeInsets.symmetric(vertical: 64),
+          padding: const EdgeInsets.symmetric(vertical: 64),
           child: Center(
             child: AloqaCard(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.person_off_outlined,
+                  const Icon(Icons.person_off_outlined,
                       size: 48, color: AppColors.slate300),
-                  SizedBox(height: 12),
+                  const SizedBox(height: 12),
                   Text(
-                    'Foydalanuvchi topilmadi.',
-                    style: TextStyle(
+                    ref.t('mobile.profile.userNotFound'),
+                    style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
                         color: AppColors.slate700),
@@ -194,7 +195,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const SectionHeading('Shaxsiy ma\'lumotlar'),
+          SectionHeading(ref.t('mobile.profile.personalHeading')),
           const SizedBox(height: 16),
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
@@ -207,7 +208,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      user.name.isEmpty ? 'Foydalanuvchi' : user.name,
+                      user.name.isEmpty
+                          ? ref.t('mobile.profile.userFallback')
+                          : user.name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -239,7 +242,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             : const Icon(Icons.photo_camera_outlined,
                                 size: 16, color: AppColors.brand600),
                         label: Text(
-                          _avatarBusy ? 'Yuklanmoqda…' : 'Rasm tanlash',
+                          _avatarBusy
+                              ? ref.t('mobile.profile.uploading')
+                              : ref.t('mobile.profile.pickImage'),
                           style: const TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
@@ -262,24 +267,24 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           const SizedBox(height: 20),
           AloqaInput(
             controller: _firstName,
-            label: 'Ism',
-            hint: 'Ismingiz',
+            label: ref.t('mobile.field.firstName'),
+            hint: ref.t('mobile.field.firstNameHint'),
             prefixIcon: Icons.person_outline,
             textCapitalization: TextCapitalization.words,
           ),
           const SizedBox(height: 14),
           AloqaInput(
             controller: _lastName,
-            label: 'Familiya',
-            hint: 'Familiyangiz',
+            label: ref.t('mobile.field.lastName'),
+            hint: ref.t('mobile.field.lastNameHint'),
             prefixIcon: Icons.badge_outlined,
             textCapitalization: TextCapitalization.words,
           ),
           const SizedBox(height: 14),
           AloqaInput(
             controller: _phone,
-            label: 'Telefon',
-            hint: '+998 90 123 45 67',
+            label: ref.t('mobile.field.phone'),
+            hint: ref.t('mobile.field.phoneHint'),
             prefixIcon: Icons.phone_outlined,
             keyboardType: TextInputType.phone,
           ),
@@ -287,22 +292,22 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           InlineErrorBanner(message: _error),
           if (_error != null) const SizedBox(height: 12),
           GradientButton(
-            label: 'Saqlash',
+            label: ref.t('action.save'),
             busy: _busy,
             icon: Icons.check_rounded,
             onPressed: _busy ? null : _save,
           ),
           if (_saved) ...[
             const SizedBox(height: 12),
-            const Row(
+            Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.check_circle_rounded,
+                const Icon(Icons.check_circle_rounded,
                     size: 18, color: AppColors.brand600),
-                SizedBox(width: 6),
+                const SizedBox(width: 6),
                 Text(
-                  'Saqlandi',
-                  style: TextStyle(
+                  ref.t('mobile.profile.savedNote'),
+                  style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                       color: AppColors.brand600),
@@ -361,11 +366,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const SectionHeading('Til'),
+          SectionHeading(ref.t('mobile.profile.languageHeading')),
           const SizedBox(height: 4),
-          const Text(
-            'Ilova interfeysi tilini tanlang.',
-            style: TextStyle(fontSize: 14, color: AppColors.slate400),
+          Text(
+            ref.t('mobile.profile.languageSub'),
+            style: const TextStyle(fontSize: 14, color: AppColors.slate400),
           ),
           const SizedBox(height: 16),
           Wrap(
@@ -426,11 +431,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const SectionHeading('Shaxsiy meeting ID (PMI)'),
+          SectionHeading(ref.t('mobile.profile.pmiHeading')),
           const SizedBox(height: 4),
-          const Text(
-            'Sizning doimiy shaxsiy konferensiya identifikatoringiz.',
-            style: TextStyle(fontSize: 14, color: AppColors.slate400),
+          Text(
+            ref.t('mobile.profile.pmiSub'),
+            style: const TextStyle(fontSize: 14, color: AppColors.slate400),
           ),
           const SizedBox(height: 14),
           Row(
@@ -464,15 +469,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   color: AppColors.slate100,
                   borderRadius: BorderRadius.circular(999),
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.lock_outline,
+                    const Icon(Icons.lock_outline,
                         size: 14, color: AppColors.slate500),
-                    SizedBox(width: 6),
+                    const SizedBox(width: 6),
                     Text(
-                      'qulflangan',
-                      style: TextStyle(
+                      ref.t('mobile.profile.pmiLocked'),
+                      style: const TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                           color: AppColors.slate500),
@@ -491,15 +496,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 /// Ichki kvadrat qirqish (pure Dart — native cropper'siz). Foydalanuvchi
 /// barmoq bilan suradi/kattalashtiradi; kvadrat oynaдаги ko'rinish ~256px PNG
 /// bo'lib qaytariladi (ekran avatarni doira qilib ko'rsatadi).
-class _AvatarCropPage extends StatefulWidget {
+class _AvatarCropPage extends ConsumerStatefulWidget {
   const _AvatarCropPage(this.file);
   final File file;
 
   @override
-  State<_AvatarCropPage> createState() => _AvatarCropPageState();
+  ConsumerState<_AvatarCropPage> createState() => _AvatarCropPageState();
 }
 
-class _AvatarCropPageState extends State<_AvatarCropPage> {
+class _AvatarCropPageState extends ConsumerState<_AvatarCropPage> {
   final _boundaryKey = GlobalKey();
   bool _saving = false;
 
@@ -531,12 +536,12 @@ class _AvatarCropPageState extends State<_AvatarCropPage> {
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
         elevation: 0,
-        title: const Text('Rasmni qirqing'),
+        title: Text(ref.t('mobile.profile.cropTitle')),
         actions: [
           TextButton(
             onPressed: _saving ? null : _done,
             child: Text(
-              _saving ? '...' : 'Tayyor',
+              _saving ? '...' : ref.t('mobile.action.done'),
               style: const TextStyle(
                   color: Color(0xFF34D399),
                   fontWeight: FontWeight.w700,
@@ -567,9 +572,9 @@ class _AvatarCropPageState extends State<_AvatarCropPage> {
             ),
           ),
           const SizedBox(height: 14),
-          const Text(
-            'Barmoq bilan suring yoki kattalashtiring',
-            style: TextStyle(color: Colors.white70, fontSize: 13),
+          Text(
+            ref.t('mobile.profile.cropHint'),
+            style: const TextStyle(color: Colors.white70, fontSize: 13),
           ),
           const Spacer(),
         ],

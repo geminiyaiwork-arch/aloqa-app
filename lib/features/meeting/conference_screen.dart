@@ -24,6 +24,7 @@ import 'package:go_router/go_router.dart';
 import 'package:livekit_client/livekit_client.dart';
 
 import '../../core/config/app_config.dart';
+import '../../core/i18n/i18n_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../contacts/contacts_service.dart';
 import 'meeting_models.dart';
@@ -351,7 +352,7 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
     if (token.isEmpty) {
       setState(() {
         _connecting = false;
-        _error = 'LiveKit token mavjud emas';
+        _error = ref.tt('mobile.conf.tokenMissing');
       });
       return;
     }
@@ -393,7 +394,7 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
         // (any platform) ended the meeting / the server closed the room → send
         // everyone back to the dashboard.
         if (_navigatingOut) return;
-        _goHome('Konferensiya yakunlandi');
+        _goHome(ref.tt('mobile.conf.ended'));
       });
   }
 
@@ -426,8 +427,8 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
         case 'reactlock':
           setState(() => _reactLocked = m['locked'] == true);
           _toast(_reactLocked
-              ? 'Administrator reaksiyalarni yashirdi'
-              : 'Reaksiyalar yoqildi');
+              ? ref.tt('mobile.conf.reactLockedToast')
+              : ref.tt('mobile.conf.reactUnlockedToast'));
           break;
         case 'hand':
           final sender = m['sender']?.toString();
@@ -462,16 +463,16 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
                 _micOn = false;
                 _room?.localParticipant?.setMicrophoneEnabled(false);
               }
-              _toast('Administrator mikrofoningizni o\'chirdi');
+              _toast(ref.tt('mobile.conf.muteByAdmin'));
             } else {
-              _toast('Administrator mikrofonga ruxsat berdi');
+              _toast(ref.tt('mobile.conf.unmuteByAdmin'));
             }
             if (mounted) setState(() {});
           }
           break;
         case 'end':
           // Host yakunladi — hammada yopiladi.
-          _goHome('Konferensiya yakunlandi');
+          _goHome(ref.tt('mobile.conf.ended'));
           break;
       }
     } catch (_) {
@@ -489,7 +490,7 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
 
   String get _myName => _room?.localParticipant?.name.isNotEmpty == true
       ? _room!.localParticipant!.name
-      : (_room?.localParticipant?.identity ?? 'Men');
+      : (_room?.localParticipant?.identity ?? ref.tt('mobile.conf.myNameFallback'));
 
   // --- chat ---
   Future<void> _sendChat(String body) async {
@@ -539,8 +540,8 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
     setState(() => _reactLocked = !_reactLocked);
     await _publish({'kind': 'reactlock', 'locked': _reactLocked});
     _toast(_reactLocked
-        ? 'Reaksiyalar yashirildi — faqat yuboruvchi ko\'radi'
-        : 'Reaksiyalar yoqildi');
+        ? ref.tt('mobile.conf.reactLockedSelfOnly')
+        : ref.tt('mobile.conf.reactEnabled'));
   }
 
   Future<void> _toggleHand() async {
@@ -703,7 +704,7 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
   Future<void> _toggleMic() async {
     // (B4) Host majburiy o'chirgan bo'lsa — o'zi yoqa olmaydi.
     if (_forceMuted && !_micOn) {
-      _toast('Mikrofonni administrator o\'chirgan — yoqishni administrator hal qiladi');
+      _toast(ref.tt('mobile.conf.micBlockedToast'));
       return;
     }
     _micOn = !_micOn;
@@ -716,13 +717,13 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
     setState(() => _allMuted = mute);
     await _publish({'kind': 'mute', 'target': 'all', 'muted': mute});
     // Host o'zi ham (agar o'zini ham qo'shsa) — lekin host o'zini boshqaradi.
-    _toast(mute ? 'Barcha mikrofonlar o\'chirildi' : 'Mikrofonlarga ruxsat berildi');
+    _toast(mute ? ref.tt('mobile.conf.allMuted') : ref.tt('mobile.conf.allUnmuted'));
   }
 
   /// (B3/B5) Host: bitta ishtirokchini o'chirish.
   Future<void> _muteParticipant(String identity, bool mute) async {
     await _publish({'kind': 'mute', 'target': identity, 'muted': mute});
-    _toast(mute ? 'Mikrofon o\'chirildi' : 'Mikrofonga ruxsat berildi');
+    _toast(mute ? ref.tt('mobile.conf.micMuted') : ref.tt('mobile.conf.micAllowed'));
   }
 
   Future<void> _toggleCam() async {
@@ -740,8 +741,8 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
 
     if (!_sharing && lkPlatformIs(PlatformType.iOS)) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('Ekran ulashish iOS\'da hozircha mavjud emas')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(ref.tt('mobile.conf.shareIosUnavailable'))));
       }
       return;
     }
@@ -783,7 +784,7 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
       _sharing = false;
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Ekran ulashish xatosi: $e')));
+            SnackBar(content: Text(ref.tt('mobile.conf.shareError', {'error': e.toString()}))));
       }
     }
     _refresh();
@@ -832,9 +833,9 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
                 },
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 leading: const Icon(Icons.logout, color: AppColors.slate700),
-                title: const Text('Chiqib ketish',
-                    style: TextStyle(fontWeight: FontWeight.w600)),
-                subtitle: const Text('Faqat siz chiqasiz, konferensiya davom etadi'),
+                title: Text(ref.tt('mobile.conf.leaveTitle'),
+                    style: const TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: Text(ref.tt('mobile.conf.leaveSub')),
               ),
               ListTile(
                 onTap: () {
@@ -843,9 +844,9 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
                 },
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 leading: const Icon(Icons.call_end, color: AppColors.danger),
-                title: const Text('Hamma uchun yakunlash',
-                    style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.danger)),
-                subtitle: const Text('Konferensiya barcha ishtirokchilarda yopiladi'),
+                title: Text(ref.tt('mobile.conf.endForAll'),
+                    style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.danger)),
+                subtitle: Text(ref.tt('mobile.conf.endForAllSub')),
               ),
             ],
           ),
@@ -861,7 +862,7 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
     try {
       await MeetingRepository.instance.endMeeting(widget.meetingId);
     } catch (_) {}
-    await _goHome('Konferensiya yakunlandi');
+    await _goHome(ref.tt('mobile.conf.ended'));
   }
 
   /// Disconnect and send the user back to the dashboard (idempotent).
@@ -953,9 +954,9 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
                 GestureDetector(
                   onTap: () {
                     Clipboard.setData(ClipboardData(text: code));
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                        content: Text('ID nusxalandi'),
-                        duration: Duration(seconds: 1)));
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: Text(ref.tt('mobile.conf.idCopied')),
+                        duration: const Duration(seconds: 1)));
                   },
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -1101,7 +1102,7 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
                 const Icon(Icons.people_outline,
                     size: 16, color: AppColors.slate700),
                 const SizedBox(width: 6),
-                Text('$_participantCount ishtirokchi',
+                Text(ref.t('mobile.conf.participantsCount', {'count': '$_participantCount'}),
                     style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
@@ -1130,11 +1131,11 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
     switch (q) {
       case 'excellent':
       case 'good':
-        return ('Yaxshi', AppColors.brand600);
+        return (ref.t('mobile.conn.good'), AppColors.brand600);
       case 'poor':
-        return ('O\'rta', const Color(0xFFD97706));
+        return (ref.t('mobile.conn.medium'), const Color(0xFFD97706));
       default:
-        return ('Past', AppColors.slate400);
+        return (ref.t('mobile.conn.poor'), AppColors.slate400);
     }
   }
 
@@ -1183,7 +1184,7 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
                   });
                   _connect();
                 },
-                child: const Text('Qayta urinish'),
+                child: Text(ref.t('action.retry')),
               ),
             ],
           ),
@@ -1193,14 +1194,14 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
 
     final infos = _pInfos();
     if (infos.isEmpty) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.videocam_off_outlined, color: AppColors.slate300, size: 48),
-            SizedBox(height: 12),
-            Text('Ishtirokchilar kutilmoqda…',
-                style: TextStyle(color: AppColors.slate400)),
+            const Icon(Icons.videocam_off_outlined, color: AppColors.slate300, size: 48),
+            const SizedBox(height: 12),
+            Text(ref.t('mobile.conf.waitingParticipants'),
+                style: const TextStyle(color: AppColors.slate400)),
           ],
         ),
       );
@@ -1240,7 +1241,7 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
       final audio = p.audioTrackPublications;
       final muted =
           local ? !_micOn : (audio.isEmpty || audio.every((a) => a.muted));
-      final registered = p.name.isNotEmpty ? p.name : (local ? 'Men' : p.identity);
+      final registered = p.name.isNotEmpty ? p.name : (local ? ref.tt('mobile.conf.myNameFallback') : p.identity);
       // For remote people, prefer the name saved in MY contacts (matched by phone).
       final name = local
           ? registered
@@ -1558,7 +1559,7 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
                   onPressed: () => setState(() => _erasing = !_erasing),
                 ),
                 const Spacer(),
-                TextButton(onPressed: _wbClear, child: const Text('Tozalash', style: TextStyle(color: Colors.redAccent))),
+                TextButton(onPressed: _wbClear, child: Text(ref.t('mobile.conf.wbClear'), style: const TextStyle(color: Colors.redAccent))),
               ],
             ),
           ),
@@ -1616,11 +1617,11 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('$total ovoz', style: const TextStyle(color: Colors.white38, fontSize: 11)),
+              Text(ref.t('mobile.conf.pollVotes', {'count': '$total'}), style: const TextStyle(color: Colors.white38, fontSize: 11)),
               if (_isHost && !p.closed)
                 GestureDetector(
                   onTap: _closePoll,
-                  child: const Text('Yopish', style: TextStyle(color: Colors.redAccent, fontSize: 12)),
+                  child: Text(ref.t('mobile.conf.pollClose'), style: const TextStyle(color: Colors.redAccent, fontSize: 12)),
                 ),
             ],
           ),
@@ -1677,19 +1678,19 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
                     _forceMuted
                         ? Icons.mic_off
                         : (_micOn ? Icons.mic : Icons.mic_off),
-                    _forceMuted ? 'Bloklangan' : 'Mikrofon',
+                    _forceMuted ? ref.t('mobile.conf.ctlMicBlocked') : ref.t('mobile.conf.ctlMic'),
                     _toggleMic,
                     danger: !_micOn || _forceMuted),
-                _ctlBtn(_camOn ? Icons.videocam : Icons.videocam_off, 'Kamera',
+                _ctlBtn(_camOn ? Icons.videocam : Icons.videocam_off, ref.t('mobile.conf.ctlCamera'),
                     _toggleCam, danger: !_camOn),
-                _ctlBtn(Icons.screen_share_outlined, 'Ekran ulashish',
+                _ctlBtn(Icons.screen_share_outlined, ref.t('mobile.conf.ctlShare'),
                     _toggleShare, active: _sharing),
               ],
-              _ctlBtn(Icons.people_outline, 'Ishtirokchilar', _openParticipants,
+              _ctlBtn(Icons.people_outline, ref.t('mobile.conf.ctlParticipants'), _openParticipants,
                   badge: _participantCount),
-              _ctlBtn(Icons.chat_bubble_outline, 'Chat', _openChat, badge: _unread),
-              _ctlBtn(Icons.emoji_emotions_outlined, 'Reaksiyalar', _showReactions),
-              _ctlBtn(Icons.more_horiz, 'Yana', _moreSheet, badge: _qnaUnread),
+              _ctlBtn(Icons.chat_bubble_outline, ref.t('mobile.conf.ctlChat'), _openChat, badge: _unread),
+              _ctlBtn(Icons.emoji_emotions_outlined, ref.t('mobile.conf.ctlReactions'), _showReactions),
+              _ctlBtn(Icons.more_horiz, ref.t('mobile.conf.ctlMore'), _moreSheet, badge: _qnaUnread),
             ],
           ),
           const SizedBox(height: 12),
@@ -1705,8 +1706,8 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
                     borderRadius: BorderRadius.circular(16)),
               ),
               icon: const Icon(Icons.call_end),
-              label: const Text('Qo\'ng\'iroqni tugatish',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+              label: Text(ref.t('mobile.conf.endCall'),
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
             ),
           ),
         ],
@@ -1788,7 +1789,7 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context)
             ..hideCurrentSnackBar()
-            ..showSnackBar(const SnackBar(content: Text('Yozish to\'xtatildi')));
+            ..showSnackBar(SnackBar(content: Text(ref.tt('mobile.conf.recordingStopped'))));
         }
       } else {
         final ok =
@@ -1798,13 +1799,13 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
           setState(() => _recording = false);
           ScaffoldMessenger.of(context)
             ..hideCurrentSnackBar()
-            ..showSnackBar(const SnackBar(
-                content: Text('Yozib bo\'lmadi (xona faolmi?)')));
+            ..showSnackBar(SnackBar(
+                content: Text(ref.tt('mobile.conf.recordingFailed'))));
         } else {
           ScaffoldMessenger.of(context)
             ..hideCurrentSnackBar()
             ..showSnackBar(
-                const SnackBar(content: Text('Yozib olish boshlandi')));
+                SnackBar(content: Text(ref.tt('mobile.conf.recordingStarted'))));
         }
       }
     } catch (_) {
@@ -1812,7 +1813,7 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
         setState(() => _recording = wasRecording);
         ScaffoldMessenger.of(context)
           ..hideCurrentSnackBar()
-          ..showSnackBar(const SnackBar(content: Text('Xatolik yuz berdi')));
+          ..showSnackBar(SnackBar(content: Text(ref.tt('common.error'))));
       }
     } finally {
       if (mounted) setState(() => _recordingBusy = false);
@@ -1844,7 +1845,7 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
               Row(
                 children: [
                   Expanded(
-                    child: _segBtn('Setka', Icons.grid_view_outlined,
+                    child: _segBtn(ref.tt('mobile.conf.layoutGrid'), Icons.grid_view_outlined,
                         _layout == 'grid', () {
                       setState(() => _layout = 'grid');
                       Navigator.pop(ctx);
@@ -1852,7 +1853,7 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
                   ),
                   const SizedBox(width: 10),
                   Expanded(
-                    child: _segBtn('So\'zlovchi', Icons.person_outline,
+                    child: _segBtn(ref.tt('mobile.conf.layoutSpeaker'), Icons.person_outline,
                         _layout == 'speaker', () {
                       setState(() => _layout = 'speaker');
                       Navigator.pop(ctx);
@@ -1863,22 +1864,22 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
               const SizedBox(height: 8),
               _sheetTile(
                   _handRaised ? Icons.front_hand : Icons.back_hand_outlined,
-                  _handRaised ? 'Qo\'lni tushirish' : 'Qo\'l ko\'tarish', () {
+                  _handRaised ? ref.tt('mobile.conf.lowerHand') : ref.tt('mobile.conf.raiseHand'), () {
                 Navigator.pop(ctx);
                 _toggleHand();
               }, active: _handRaised),
               if (!_viewOnly)
                 _sheetTile(Icons.edit_outlined,
-                    _boardOpen ? 'Doskani yopish' : 'Doska', () {
+                    _boardOpen ? ref.tt('mobile.conf.boardClose') : ref.tt('mobile.conf.board'), () {
                   Navigator.pop(ctx);
                   setState(() => _boardOpen = !_boardOpen);
                 }, active: _boardOpen),
-              _sheetTile(Icons.help_outline, 'Savol-javob', () {
+              _sheetTile(Icons.help_outline, ref.tt('mobile.conf.qna'), () {
                 Navigator.pop(ctx);
                 _openQna();
               }),
               if (_isHost)
-                _sheetTile(Icons.bar_chart, 'So\'rovnoma', () {
+                _sheetTile(Icons.bar_chart, ref.tt('mobile.conf.poll'), () {
                   Navigator.pop(ctx);
                   _openPollComposer();
                 }),
@@ -1887,7 +1888,7 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
                   _recording
                       ? Icons.stop_circle_outlined
                       : Icons.fiber_manual_record,
-                  _recording ? 'Yozishni to\'xtatish' : 'Yozib olish (bulut)',
+                  _recording ? ref.tt('mobile.conf.recordStop') : ref.tt('mobile.conf.recordCloud'),
                   () {
                     Navigator.pop(ctx);
                     _toggleRecording();
@@ -1898,8 +1899,8 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
                 _sheetTile(
                   _allMuted ? Icons.mic : Icons.mic_off,
                   _allMuted
-                      ? 'Mikrofonlarga ruxsat berish'
-                      : 'Hammani o\'chirish (mute all)',
+                      ? ref.tt('mobile.conf.unmuteAll')
+                      : ref.tt('mobile.conf.muteAll'),
                   () {
                     Navigator.pop(ctx);
                     _muteAll(!_allMuted);
@@ -1912,8 +1913,8 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
                       ? Icons.emoji_emotions
                       : Icons.emoji_emotions_outlined,
                   _reactLocked
-                      ? 'Reaksiyalarni yoqish'
-                      : 'Reaksiyalarni yashirish',
+                      ? ref.tt('mobile.conf.reactEnable')
+                      : ref.tt('mobile.conf.reactHide'),
                   () {
                     Navigator.pop(ctx);
                     _toggleReactLock();
@@ -1989,7 +1990,7 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
                           borderRadius: BorderRadius.circular(2))),
                 ),
                 const SizedBox(height: 12),
-                Text('Ishtirokchilar (${infos.length})',
+                Text(ref.tt('mobile.conf.participantsTitle', {'count': '${infos.length}'}),
                     style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
@@ -2009,7 +2010,10 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
                                     fontWeight: FontWeight.w700,
                                     fontSize: 14)),
                           ),
-                          title: Text('${p.name}${p.local ? ' (siz)' : ''}',
+                          title: Text(
+                              p.local
+                                  ? ref.tt('mobile.conf.youSuffix', {'name': p.name})
+                                  : p.name,
                               style:
                                   const TextStyle(fontWeight: FontWeight.w500)),
                           trailing: Row(
@@ -2030,8 +2034,8 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
                                       size: 20,
                                       color: AppColors.slate500),
                                   tooltip: p.muted
-                                      ? 'Mikrofonga ruxsat'
-                                      : 'Mikrofonni o\'chirish',
+                                      ? ref.tt('mobile.conf.tooltipUnmute')
+                                      : ref.tt('mobile.conf.tooltipMute'),
                                   onPressed: () {
                                     Navigator.pop(ctx);
                                     _muteParticipant(p.id, !p.muted);
@@ -2115,19 +2119,19 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1A1A22),
-        title: const Text('So\'rovnoma', style: TextStyle(color: Colors.white)),
+        title: Text(ref.tt('mobile.conf.pollComposerTitle'), style: const TextStyle(color: Colors.white)),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              TextField(controller: qCtrl, style: const TextStyle(color: Colors.white), decoration: const InputDecoration(hintText: 'Savol', hintStyle: TextStyle(color: Colors.white38))),
+              TextField(controller: qCtrl, style: const TextStyle(color: Colors.white), decoration: InputDecoration(hintText: ref.tt('mobile.conf.pollQuestionHint'), hintStyle: const TextStyle(color: Colors.white38))),
               for (var i = 0; i < optCtrls.length; i++)
-                TextField(controller: optCtrls[i], style: const TextStyle(color: Colors.white), decoration: InputDecoration(hintText: 'Variant ${i + 1}', hintStyle: const TextStyle(color: Colors.white38))),
+                TextField(controller: optCtrls[i], style: const TextStyle(color: Colors.white), decoration: InputDecoration(hintText: ref.tt('mobile.conf.pollOptionHint', {'n': '${i + 1}'}), hintStyle: const TextStyle(color: Colors.white38))),
             ],
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Bekor')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(ref.tt('mobile.action.cancelShort'))),
           FilledButton(
             onPressed: () {
               final opts = optCtrls.map((c) => c.text.trim()).where((s) => s.isNotEmpty).toList();
@@ -2135,7 +2139,7 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
               Navigator.pop(ctx);
               _createPoll(qCtrl.text.trim(), opts);
             },
-            child: const Text('Yaratish'),
+            child: Text(ref.tt('mobile.action.createShort')),
           ),
         ],
       ),
@@ -2199,16 +2203,16 @@ String _chatTime(int ts) {
   return '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
 }
 
-class _ChatSheet extends StatefulWidget {
+class _ChatSheet extends ConsumerStatefulWidget {
   const _ChatSheet({required this.messages, required this.onSend});
   final List<_ChatMsg> messages;
   final Future<void> Function(String) onSend;
 
   @override
-  State<_ChatSheet> createState() => _ChatSheetState();
+  ConsumerState<_ChatSheet> createState() => _ChatSheetState();
 }
 
-class _ChatSheetState extends State<_ChatSheet> {
+class _ChatSheetState extends ConsumerState<_ChatSheet> {
   final _ctrl = TextEditingController();
 
   @override
@@ -2236,13 +2240,13 @@ class _ChatSheetState extends State<_ChatSheet> {
                       color: Colors.white24,
                       borderRadius: BorderRadius.circular(2))),
             ),
-            const Padding(
-              padding: EdgeInsets.fromLTRB(18, 12, 18, 8),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 12, 18, 8),
               child: Row(children: [
-                Icon(Icons.forum_rounded, color: Colors.white70, size: 18),
-                SizedBox(width: 8),
-                Text('Suhbat',
-                    style: TextStyle(
+                const Icon(Icons.forum_rounded, color: Colors.white70, size: 18),
+                const SizedBox(width: 8),
+                Text(ref.t('mobile.conf.chatTitle'),
+                    style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.w700,
                         fontSize: 16)),
@@ -2253,11 +2257,11 @@ class _ChatSheetState extends State<_ChatSheet> {
                   ? Center(
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
-                        children: const [
-                          Text('💬', style: TextStyle(fontSize: 36)),
-                          SizedBox(height: 8),
-                          Text('Hali xabar yo\'q',
-                              style: TextStyle(color: Colors.white38)),
+                        children: [
+                          const Text('💬', style: TextStyle(fontSize: 36)),
+                          const SizedBox(height: 8),
+                          Text(ref.t('mobile.conf.chatEmpty'),
+                              style: const TextStyle(color: Colors.white38)),
                         ],
                       ),
                     )
@@ -2284,7 +2288,7 @@ class _ChatSheetState extends State<_ChatSheet> {
                       style: const TextStyle(color: Colors.white),
                       textInputAction: TextInputAction.send,
                       decoration: InputDecoration(
-                        hintText: 'Xabar yozing...',
+                        hintText: ref.t('mobile.conf.chatHint'),
                         hintStyle: const TextStyle(color: Colors.white38),
                         filled: true,
                         fillColor: Colors.white10,
@@ -2400,7 +2404,7 @@ class _ChatSheetState extends State<_ChatSheet> {
   }
 }
 
-class _QnaSheet extends StatefulWidget {
+class _QnaSheet extends ConsumerStatefulWidget {
   const _QnaSheet({
     required this.questions,
     required this.isHost,
@@ -2415,10 +2419,10 @@ class _QnaSheet extends StatefulWidget {
   final void Function(String) onAnswered;
 
   @override
-  State<_QnaSheet> createState() => _QnaSheetState();
+  ConsumerState<_QnaSheet> createState() => _QnaSheetState();
 }
 
-class _QnaSheetState extends State<_QnaSheet> {
+class _QnaSheetState extends ConsumerState<_QnaSheet> {
   final _ctrl = TextEditingController();
 
   @override
@@ -2440,13 +2444,13 @@ class _QnaSheetState extends State<_QnaSheet> {
         height: MediaQuery.of(context).size.height * 0.6,
         child: Column(
           children: [
-            const Padding(
-              padding: EdgeInsets.all(14),
-              child: Text('Q&A', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 16)),
+            Padding(
+              padding: const EdgeInsets.all(14),
+              child: Text(ref.t('mobile.conf.qnaTitle'), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 16)),
             ),
             Expanded(
               child: sorted.isEmpty
-                  ? const Center(child: Text('Hali savol yo\'q', style: TextStyle(color: Colors.white38)))
+                  ? Center(child: Text(ref.t('mobile.conf.qnaEmpty'), style: const TextStyle(color: Colors.white38)))
                   : ListView.builder(
                       padding: const EdgeInsets.symmetric(horizontal: 14),
                       itemCount: sorted.length,
@@ -2481,10 +2485,10 @@ class _QnaSheetState extends State<_QnaSheet> {
                                     if (widget.isHost && !q.answered)
                                       TextButton(
                                         onPressed: () => setState(() => widget.onAnswered(q.id)),
-                                        child: const Text('✓ Javob berildi', style: TextStyle(color: Color(0xFF22C55E), fontSize: 12)),
+                                        child: Text(ref.t('mobile.conf.qnaAnswered'), style: const TextStyle(color: Color(0xFF22C55E), fontSize: 12)),
                                       ),
                                     if (q.answered)
-                                      const Text('✓ Javob berilgan', style: TextStyle(color: Color(0xFF22C55E), fontSize: 11)),
+                                      Text(ref.t('mobile.conf.qnaAnsweredDone'), style: const TextStyle(color: Color(0xFF22C55E), fontSize: 11)),
                                   ],
                                 ),
                               ),
@@ -2502,12 +2506,12 @@ class _QnaSheetState extends State<_QnaSheet> {
                     child: TextField(
                       controller: _ctrl,
                       style: const TextStyle(color: Colors.white),
-                      decoration: const InputDecoration(
-                        hintText: 'Savol bering...',
-                        hintStyle: TextStyle(color: Colors.white38),
+                      decoration: InputDecoration(
+                        hintText: ref.t('mobile.conf.qnaHint'),
+                        hintStyle: const TextStyle(color: Colors.white38),
                         filled: true,
                         fillColor: Colors.white10,
-                        border: OutlineInputBorder(borderSide: BorderSide.none),
+                        border: const OutlineInputBorder(borderSide: BorderSide.none),
                       ),
                       onSubmitted: (_) => _ask(),
                     ),

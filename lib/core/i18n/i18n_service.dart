@@ -117,7 +117,7 @@ class I18nController extends StateNotifier<I18nState> {
 
   final Dio _dio;
   static const _kSelectedPrefKey = 'aloqa_i18n_selected';
-  static const _kNamespaces = ['common', 'web'];
+  static const _kNamespaces = ['common', 'web', 'mobile'];
 
   String _bundleCacheKey(String lang, String ns, int version) =>
       'aloqa_i18n_bundle_${lang}_${ns}_v$version';
@@ -301,8 +301,28 @@ final localeProvider = Provider<Locale>((ref) {
   return parts.length > 1 ? Locale(parts[0], parts[1]) : Locale(parts[0]);
 });
 
+String _interp(String s, Map<String, String>? vars) {
+  if (vars == null || vars.isEmpty) return s;
+  var out = s;
+  vars.forEach((k, v) => out = out.replaceAll('{{$k}}', v));
+  return out;
+}
+
 /// Convenience: read a translation reactively inside a build method.
-///   final t = ref.t;  t('home.new_meeting')
+///   ref.t('dash.new')                               — simple
+///   ref.t('dash.greeting', {'name': user.name})     — with placeholders
 extension I18nRef on WidgetRef {
-  String t(String key) => watch(i18nProvider).tr(key);
+  /// Reactive (use inside build): rebuilds when the language changes.
+  String t(String key, [Map<String, String>? vars]) =>
+      _interp(watch(i18nProvider).tr(key), vars);
+
+  /// Non-reactive (use inside callbacks/event handlers where watch is illegal).
+  String tt(String key, [Map<String, String>? vars]) =>
+      _interp(read(i18nProvider).tr(key), vars);
+}
+
+/// Same helpers for a Riverpod `Ref` (e.g. inside providers/notifiers).
+extension I18nRefBase on Ref {
+  String tr(String key, [Map<String, String>? vars]) =>
+      _interp(read(i18nProvider).tr(key), vars);
 }

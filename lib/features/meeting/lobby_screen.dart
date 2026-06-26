@@ -170,7 +170,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                   controller: _name,
                   readOnly: !hasPlan,
                   decoration: InputDecoration(
-                    labelText: ref.t('lobby.your_name'),
+                    labelText: ref.t('lobby.yourName'),
                     prefixIcon: const Icon(Icons.person_outline),
                     suffixIcon: hasPlan
                         ? null
@@ -178,7 +178,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                             size: 18, color: Color(0xFF94A3B8)),
                     helperText: hasPlan
                         ? null
-                        : 'Ismni o\'zgartirish — tarif sotib olinganda mumkin',
+                        : ref.t('mobile.lobby.namePlanLocked'),
                   ),
                 );
               }),
@@ -192,7 +192,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                         child: CircularProgressIndicator(
                             strokeWidth: 2.2, color: Colors.white))
                     : const Icon(Icons.video_call),
-                label: Text(ref.t('lobby.join_button')),
+                label: Text(ref.t('lobby.joinNow')),
               ),
             ],
           ),

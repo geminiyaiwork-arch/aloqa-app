@@ -10,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:aloqa/core/format.dart';
+import 'package:aloqa/core/i18n/i18n_service.dart';
 import 'package:aloqa/core/theme/app_theme.dart';
 import 'package:aloqa/core/widgets/aloqa_card.dart';
 import 'package:aloqa/core/widgets/aloqa_input.dart';
@@ -36,11 +37,11 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
   bool _busy = false;
   String? _error;
 
-  static const _recurrenceOptions = <({String value, String label})>[
-    (value: '', label: 'Bir martalik'),
-    (value: 'daily', label: 'Har kuni'),
-    (value: 'weekly', label: 'Har hafta'),
-    (value: 'monthly', label: 'Har oy'),
+  static const _recurrenceOptions = <({String value, String labelKey})>[
+    (value: '', labelKey: 'mobile.schedule.recurrenceOnce'),
+    (value: 'daily', labelKey: 'mobile.schedule.recurrenceDaily'),
+    (value: 'weekly', labelKey: 'mobile.schedule.recurrenceWeekly'),
+    (value: 'monthly', labelKey: 'mobile.schedule.recurrenceMonthly'),
   ];
 
   @override
@@ -58,18 +59,18 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
       initialDate: base.isBefore(now) ? now : base,
       firstDate: DateTime(now.year, now.month, now.day),
       lastDate: DateTime(now.year + 2),
-      helpText: 'Sanani tanlang',
-      cancelText: 'Bekor qilish',
-      confirmText: 'Tanlash',
+      helpText: ref.tt('mobile.schedule.pickDate'),
+      cancelText: ref.tt('action.cancel'),
+      confirmText: ref.tt('mobile.action.select'),
     );
     if (date == null || !mounted) return;
 
     final time = await showTimePicker(
       context: context,
       initialTime: TimeOfDay.fromDateTime(base),
-      helpText: 'Vaqtni tanlang',
-      cancelText: 'Bekor qilish',
-      confirmText: 'Tanlash',
+      helpText: ref.tt('mobile.schedule.pickTime'),
+      cancelText: ref.tt('action.cancel'),
+      confirmText: ref.tt('mobile.action.select'),
     );
     if (time == null || !mounted) return;
 
@@ -95,11 +96,11 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
     FocusScope.of(context).unfocus();
 
     if (_when == null) {
-      setState(() => _error = 'Sana va vaqtni tanlang');
+      setState(() => _error = ref.tt('mobile.schedule.errorPickWhen'));
       return;
     }
     if (_durationMinutes < 15) {
-      setState(() => _error = "Davomiylik kamida 15 daqiqa bo'lishi kerak");
+      setState(() => _error = ref.tt('mobile.schedule.errorDuration'));
       return;
     }
 
@@ -119,10 +120,10 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
       context.go('/home');
     } catch (_) {
       if (!mounted) return;
-      setState(() => _error = 'Xatolik yuz berdi');
+      setState(() => _error = ref.tt('common.error'));
       ScaffoldMessenger.of(context)
         ..clearSnackBars()
-        ..showSnackBar(const SnackBar(content: Text('Xatolik yuz berdi')));
+        ..showSnackBar(SnackBar(content: Text(ref.tt('common.error'))));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -141,7 +142,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 RevealUp(
-                  child: _Intro(),
+                  child: _Intro(ref: ref),
                 ),
                 const SizedBox(height: 20),
                 RevealUp(
@@ -153,20 +154,21 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                       children: [
                         AloqaInput(
                           controller: _title,
-                          label: 'Uchrashuv nomi',
-                          hint: 'Masalan: Haftalik yig\'ilish',
+                          label: ref.t('new.meetingTitle'),
+                          hint: ref.t('mobile.schedule.titleHintExample'),
                           prefixIcon: Icons.title_rounded,
                           textCapitalization: TextCapitalization.sentences,
                         ),
                         const SizedBox(height: 18),
                         _WhenField(
+                          ref: ref,
                           when: _when,
                           onTap: _pickWhen,
                         ),
                         const SizedBox(height: 18),
                         AloqaInput(
                           controller: _duration,
-                          label: 'Davomiyligi (daqiqa)',
+                          label: ref.t('mobile.schedule.durationLabel'),
                           hint: '60',
                           prefixIcon: Icons.timer_outlined,
                           keyboardType: TextInputType.number,
@@ -177,13 +179,14 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                           },
                         ),
                         const SizedBox(height: 6),
-                        const Text(
-                          'Eng kami 15 daqiqa.',
-                          style: TextStyle(
+                        Text(
+                          ref.t('mobile.schedule.minDuration'),
+                          style: const TextStyle(
                               fontSize: 12, color: AppColors.slate400),
                         ),
                         const SizedBox(height: 18),
                         _RecurrenceField(
+                          ref: ref,
                           value: _recurrence,
                           options: _recurrenceOptions,
                           onChanged: (v) =>
@@ -193,7 +196,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                         InlineErrorBanner(message: _error),
                         if (_error != null) const SizedBox(height: 14),
                         GradientButton(
-                          label: 'Saqlash',
+                          label: ref.t('action.save'),
                           icon: Icons.calendar_month_rounded,
                           busy: _busy,
                           onPressed: _busy ? null : _submit,
@@ -206,6 +209,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
                 RevealUp(
                   delayMs: 160,
                   child: _SummaryCard(
+                    ref: ref,
                     when: _when,
                     durationMinutes: _durationMinutes,
                     recurrenceLabel: _recurrenceLabel,
@@ -222,13 +226,17 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
 
   String get _recurrenceLabel {
     for (final o in _recurrenceOptions) {
-      if (o.value == _recurrence) return o.label;
+      if (o.value == _recurrence) return ref.t(o.labelKey);
     }
-    return 'Bir martalik';
+    return ref.t('mobile.schedule.recurrenceOnce');
   }
 }
 
 class _Intro extends StatelessWidget {
+  const _Intro({required this.ref});
+
+  final WidgetRef ref;
+
   @override
   Widget build(BuildContext context) {
     return Row(
@@ -244,21 +252,21 @@ class _Intro extends StatelessWidget {
               color: AppColors.brand600, size: 24),
         ),
         const SizedBox(width: 14),
-        const Expanded(
+        Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Uchrashuvni rejalashtirish',
-                style: TextStyle(
+                ref.t('schedule.title'),
+                style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
                     color: AppColors.slate900),
               ),
-              SizedBox(height: 2),
+              const SizedBox(height: 2),
               Text(
-                "Sana, vaqt va davomiylikni belgilang.",
-                style: TextStyle(fontSize: 14, color: AppColors.slate500),
+                ref.t('mobile.schedule.introSub'),
+                style: const TextStyle(fontSize: 14, color: AppColors.slate500),
               ),
             ],
           ),
@@ -270,8 +278,9 @@ class _Intro extends StatelessWidget {
 
 /// Tappable, read-only style field that opens date+time pickers.
 class _WhenField extends StatelessWidget {
-  const _WhenField({required this.when, required this.onTap});
+  const _WhenField({required this.ref, required this.when, required this.onTap});
 
+  final WidgetRef ref;
   final DateTime? when;
   final VoidCallback onTap;
 
@@ -281,9 +290,9 @@ class _WhenField extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Sana va vaqt',
-          style: TextStyle(
+        Text(
+          ref.t('schedule.when'),
+          style: const TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w500,
               color: AppColors.slate600),
@@ -317,7 +326,7 @@ class _WhenField extends StatelessWidget {
                     child: Text(
                       hasValue
                           ? fmtDateTime(when)
-                          : 'Sana va vaqtni tanlang',
+                          : ref.t('mobile.schedule.pickWhenPlaceholder'),
                       style: TextStyle(
                         fontSize: 15,
                         fontWeight: hasValue ? FontWeight.w600 : FontWeight.w400,
@@ -342,13 +351,15 @@ class _WhenField extends StatelessWidget {
 /// Recurrence dropdown styled to match the rest of the form.
 class _RecurrenceField extends StatelessWidget {
   const _RecurrenceField({
+    required this.ref,
     required this.value,
     required this.options,
     required this.onChanged,
   });
 
+  final WidgetRef ref;
   final String value;
-  final List<({String value, String label})> options;
+  final List<({String value, String labelKey})> options;
   final ValueChanged<String?> onChanged;
 
   @override
@@ -356,9 +367,9 @@ class _RecurrenceField extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Takrorlanish',
-          style: TextStyle(
+        Text(
+          ref.t('mobile.schedule.recurrenceLabel'),
+          style: const TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w500,
               color: AppColors.slate600),
@@ -393,7 +404,7 @@ class _RecurrenceField extends StatelessWidget {
             for (final o in options)
               DropdownMenuItem<String>(
                 value: o.value,
-                child: Text(o.label),
+                child: Text(ref.t(o.labelKey)),
               ),
           ],
           onChanged: onChanged,
@@ -406,11 +417,13 @@ class _RecurrenceField extends StatelessWidget {
 /// Read-only recap of the chosen schedule so the host sees what will be saved.
 class _SummaryCard extends StatelessWidget {
   const _SummaryCard({
+    required this.ref,
     required this.when,
     required this.durationMinutes,
     required this.recurrenceLabel,
   });
 
+  final WidgetRef ref;
   final DateTime? when;
   final int durationMinutes;
   final String recurrenceLabel;
@@ -426,9 +439,9 @@ class _SummaryCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Ko\'rib chiqish',
-            style: TextStyle(
+          Text(
+            ref.t('mobile.schedule.reviewTitle'),
+            style: const TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
                 color: AppColors.slate900),
@@ -436,28 +449,33 @@ class _SummaryCard extends StatelessWidget {
           const SizedBox(height: 12),
           _SummaryRow(
             icon: Icons.event_rounded,
-            label: 'Boshlanish',
-            value: when != null ? fmtDateTime(when) : 'Tanlanmagan',
+            label: ref.t('mobile.schedule.start'),
+            value: when != null
+                ? fmtDateTime(when)
+                : ref.t('mobile.schedule.notSelected'),
             muted: when == null,
           ),
           const SizedBox(height: 10),
           _SummaryRow(
             icon: Icons.timelapse_rounded,
             label: 'Davomiyligi',
-            value: durationMinutes >= 15 ? '$durationMinutes daqiqa' : '—',
+            value: durationMinutes >= 15
+                ? ref.t('mobile.schedule.durationValue',
+                    {'minutes': '$durationMinutes'})
+                : '—',
             muted: durationMinutes < 15,
           ),
           const SizedBox(height: 10),
           _SummaryRow(
             icon: Icons.flag_outlined,
-            label: 'Tugash',
+            label: ref.t('mobile.schedule.end'),
             value: endsAt != null ? fmtDateTime(endsAt) : '—',
             muted: endsAt == null,
           ),
           const SizedBox(height: 10),
           _SummaryRow(
             icon: Icons.repeat_rounded,
-            label: 'Takrorlanish',
+            label: ref.t('mobile.schedule.recurrenceLabel'),
             value: recurrenceLabel,
             muted: false,
           ),

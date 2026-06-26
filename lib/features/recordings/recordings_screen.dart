@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'package:aloqa/core/i18n/i18n_service.dart';
 import 'package:aloqa/core/theme/app_theme.dart';
 import 'package:aloqa/core/widgets/app_shell.dart';
 import 'package:aloqa/core/widgets/aloqa_card.dart';
@@ -43,9 +44,10 @@ class RecordingsScreen extends ConsumerWidget {
                   RevealUp(
                     delayMs: 60,
                     child: SectionHeading(
-                      'Yozuvlar',
+                      ref.t('stub.recordings'),
                       trailing: Text(
-                        '${rows.length} ta',
+                        ref.t('mobile.recordings.count',
+                            {'count': '${rows.length}'}),
                         style: const TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
@@ -80,11 +82,11 @@ class RecordingsScreen extends ConsumerWidget {
 }
 
 /// Page title + subtitle.
-class _Header extends StatelessWidget {
+class _Header extends ConsumerWidget {
   const _Header();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -104,10 +106,10 @@ class _Header extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 14),
-            const Expanded(
+            Expanded(
               child: Text(
-                'Bulutli yozuvlar',
-                style: TextStyle(
+                ref.t('mobile.recordings.headerTitle'),
+                style: const TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
                   color: AppColors.slate900,
@@ -117,9 +119,9 @@ class _Header extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 8),
-        const Text(
-          'Yozib olingan uchrashuvlaringiz shu yerda saqlanadi.',
-          style: TextStyle(
+        Text(
+          ref.t('mobile.recordings.headerSub'),
+          style: const TextStyle(
             fontSize: 14,
             color: AppColors.slate500,
             height: 1.4,
@@ -132,15 +134,16 @@ class _Header extends StatelessWidget {
 
 /// Single recording entry — spec: rounded12 bg slate100, meeting id + type·status,
 /// duration on the right.
-class _RecordingRowTile extends StatelessWidget {
+class _RecordingRowTile extends ConsumerWidget {
   const _RecordingRowTile({required this.row});
 
   final RecordingRow row;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final durationLabel = row.duration != null
-        ? '${(row.duration! / 60).round()} daq'
+        ? ref.t('mobile.recordings.durationLabel',
+            {'minutes': '${(row.duration! / 60).round()}'})
         : '';
 
     final ready = row.url != null;
@@ -185,7 +188,8 @@ class _RecordingRowTile extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      'Uchrashuv #${row.meetingId}',
+                      ref.t('mobile.recordings.meetingNum',
+                          {'id': '${row.meetingId}'}),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -197,8 +201,14 @@ class _RecordingRowTile extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       ready
-                          ? '${row.type ?? "cloud"} · ko\'rish uchun bosing'
-                          : '${row.type ?? "cloud"} · ${row.status == "recording" ? "yozilmoqda…" : "tayyorlanmoqda…"}',
+                          ? ref.t('mobile.recordings.tapToView',
+                              {'type': '${row.type ?? "cloud"}'})
+                          : ref.t('mobile.recordings.recordingStatus', {
+                              'type': '${row.type ?? "cloud"}',
+                              'status': row.status == "recording"
+                                  ? ref.t('mobile.recordings.statusRecording')
+                                  : ref.t('mobile.recordings.statusProcessing'),
+                            }),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -234,11 +244,11 @@ class _RecordingRowTile extends StatelessWidget {
 }
 
 /// Empty state — spec: centered AloqaCard, 🎬 + headline + hint.
-class _EmptyState extends StatelessWidget {
+class _EmptyState extends ConsumerWidget {
   const _EmptyState();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return AloqaCard(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 64),
       child: Column(
@@ -255,20 +265,20 @@ class _EmptyState extends StatelessWidget {
             child: const Text('🎬', style: TextStyle(fontSize: 34)),
           ),
           const SizedBox(height: 20),
-          const Text(
-            'Hozircha yozuv yo\'q.',
+          Text(
+            ref.t('mobile.recordings.emptyTitle'),
             textAlign: TextAlign.center,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 17,
               fontWeight: FontWeight.w600,
               color: AppColors.slate700,
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
-            'Uchrashuvda «Yozib olish» yoqilganda, yozuvlaringiz shu yerda paydo bo\'ladi.',
+          Text(
+            ref.t('mobile.recordings.emptySub'),
             textAlign: TextAlign.center,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 14,
               color: AppColors.slate500,
               height: 1.45,
@@ -281,17 +291,17 @@ class _EmptyState extends StatelessWidget {
 }
 
 /// Loading state — branded spinner inside a card.
-class _LoadingState extends StatelessWidget {
+class _LoadingState extends ConsumerWidget {
   const _LoadingState();
 
   @override
-  Widget build(BuildContext context) {
-    return const AloqaCard(
-      padding: EdgeInsets.symmetric(horizontal: 24, vertical: 64),
+  Widget build(BuildContext context, WidgetRef ref) {
+    return AloqaCard(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 64),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          SizedBox(
+          const SizedBox(
             width: 30,
             height: 30,
             child: CircularProgressIndicator(
@@ -299,10 +309,10 @@ class _LoadingState extends StatelessWidget {
               color: AppColors.brand600,
             ),
           ),
-          SizedBox(height: 16),
+          const SizedBox(height: 16),
           Text(
-            'Yuklanmoqda…',
-            style: TextStyle(fontSize: 14, color: AppColors.slate400),
+            ref.t('common.loading'),
+            style: const TextStyle(fontSize: 14, color: AppColors.slate400),
           ),
         ],
       ),
@@ -311,17 +321,17 @@ class _LoadingState extends StatelessWidget {
 }
 
 /// Error state — friendly banner + empty card so the page never crashes.
-class _ErrorState extends StatelessWidget {
+class _ErrorState extends ConsumerWidget {
   const _ErrorState();
 
   @override
-  Widget build(BuildContext context) {
-    return const Column(
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        InlineErrorBanner(message: 'Xatolik yuz berdi'),
-        SizedBox(height: 16),
-        _EmptyState(),
+        InlineErrorBanner(message: ref.t('common.error')),
+        const SizedBox(height: 16),
+        const _EmptyState(),
       ],
     );
   }

@@ -7,6 +7,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:aloqa/core/i18n/i18n_service.dart';
 import 'package:aloqa/core/theme/app_theme.dart';
 import 'package:aloqa/core/widgets/aloqa_card.dart';
 import 'package:aloqa/core/widgets/app_shell.dart';
@@ -108,7 +109,7 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        title: const Text('Saqlangan nom'),
+        title: Text(ref.tt('mobile.contacts.savedName')),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -119,9 +120,9 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
             TextField(
               controller: ctrl,
               autofocus: true,
-              decoration: const InputDecoration(
-                hintText: 'Ism Familiya',
-                helperText: 'Konferensiyada shu nom ko\'rinadi',
+              decoration: InputDecoration(
+                hintText: ref.tt('mobile.contacts.nameHint'),
+                helperText: ref.tt('mobile.contacts.nameHelper'),
               ),
             ),
           ],
@@ -129,13 +130,13 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, '__clear__'),
-            child: const Text('Tozalash',
-                style: TextStyle(color: AppColors.slate500)),
+            child: Text(ref.tt('mobile.action.clear'),
+                style: const TextStyle(color: AppColors.slate500)),
           ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: AppColors.brand600),
             onPressed: () => Navigator.pop(ctx, ctrl.text),
-            child: const Text('Saqlash'),
+            child: Text(ref.tt('action.save')),
           ),
         ],
       ),
@@ -163,9 +164,9 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
                 unselectedLabelColor: AppColors.slate500,
                 indicatorColor: AppColors.brand600,
                 labelStyle: const TextStyle(fontWeight: FontWeight.w700),
-                tabs: const [
-                  Tab(text: 'Kontaktlar'),
-                  Tab(text: 'Ishtirokchilar'),
+                tabs: [
+                  Tab(text: ref.t('mobile.contacts.tabContacts')),
+                  Tab(text: ref.t('mobile.contacts.tabParticipants')),
                 ],
               ),
             ),
@@ -191,13 +192,13 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
           child: CircularProgressIndicator(color: AppColors.brand600));
     }
     if (_participants.isEmpty) {
-      return const Center(
+      return Center(
         child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: 32),
+          padding: const EdgeInsets.symmetric(horizontal: 32),
           child: Text(
-            'Hozircha ishtirokchi yo\'q.\nUchrashuv o\'tkazsangiz, ishtirokchilar shu yerда to\'planadi.',
+            ref.t('mobile.contacts.participantsEmpty'),
             textAlign: TextAlign.center,
-            style: TextStyle(color: AppColors.slate400),
+            style: const TextStyle(color: AppColors.slate400),
           ),
         ),
       );
@@ -207,7 +208,9 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
       children: [
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 6),
-          child: Text('${_participants.length} ta ishtirokchi',
+          child: Text(
+              ref.t('mobile.contacts.participantsCount',
+                  {'count': '${_participants.length}'}),
               style: const TextStyle(fontSize: 12.5, color: AppColors.slate400)),
         ),
         Expanded(
@@ -242,23 +245,23 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
                         size: 32, color: AppColors.brand600),
                   ),
                   const SizedBox(height: 16),
-                  const Text('Kontaktlarga ruxsat',
-                      style: TextStyle(
+                  Text(ref.t('mobile.contacts.permissionTitle'),
+                      style: const TextStyle(
                           fontSize: 17,
                           fontWeight: FontWeight.w700,
                           color: AppColors.slate900)),
                   const SizedBox(height: 6),
-                  const Text(
-                    'Telefon kontaktlaringizni o\'qishga ruxsat bering — '
-                    'konferensiyada tanishlaringiz siz saqlagan nom bilan ko\'rinadi.',
+                  Text(
+                    ref.t('mobile.contacts.permissionSub'),
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 14, color: AppColors.slate500),
+                    style:
+                        const TextStyle(fontSize: 14, color: AppColors.slate500),
                   ),
                   const SizedBox(height: 20),
                   ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 260),
                     child: GradientButton(
-                        label: 'Ruxsat berish',
+                        label: ref.t('mobile.contacts.allowButton'),
                         icon: Icons.lock_open,
                         onPressed: _ask),
                   ),
@@ -277,22 +280,23 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
           children: [
             const CircularProgressIndicator(color: AppColors.brand600),
             const SizedBox(height: 16),
-            const Text('Kontaktlar yuklanmoqda…',
-                style: TextStyle(color: AppColors.slate500)),
+            Text(ref.t('mobile.contacts.loading'),
+                style: const TextStyle(color: AppColors.slate500)),
             if (_slow) ...[
               const SizedBox(height: 4),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 40),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 40),
                 child: Text(
-                  'Kontaktlaringiz ko\'p bo\'lsa biroz vaqt olishi mumkin.',
+                  ref.t('mobile.contacts.slowHint'),
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: AppColors.slate400, fontSize: 13),
+                  style:
+                      const TextStyle(color: AppColors.slate400, fontSize: 13),
                 ),
               ),
               const SizedBox(height: 6),
               TextButton(
                 onPressed: _reload,
-                child: const Text('Qayta urinish'),
+                child: Text(ref.t('action.retry')),
               ),
             ],
           ],
@@ -315,9 +319,9 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
       children: [
         TextField(
           onChanged: (v) => setState(() => _query = v),
-          decoration: const InputDecoration(
-            hintText: 'Qidirish…',
-            prefixIcon: Icon(Icons.search, size: 20),
+          decoration: InputDecoration(
+            hintText: ref.t('mobile.contacts.searchHint'),
+            prefixIcon: const Icon(Icons.search, size: 20),
             isDense: true,
             filled: true,
             fillColor: Colors.white,
@@ -326,7 +330,9 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
         const SizedBox(height: 6),
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 6),
-          child: Text('${list.length} ta kontakt',
+          child: Text(
+              ref.t('mobile.contacts.contactsCount',
+                  {'count': '${list.length}'}),
               style: const TextStyle(fontSize: 12.5, color: AppColors.slate400)),
         ),
         Expanded(
@@ -335,14 +341,17 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(_all.isEmpty ? 'Kontakt topilmadi' : 'Qidiruv bo\'yicha topilmadi',
+                      Text(
+                          _all.isEmpty
+                              ? ref.t('mobile.contacts.notFound')
+                              : ref.t('mobile.contacts.searchNotFound'),
                           style: const TextStyle(color: AppColors.slate400)),
                       if (_all.isEmpty) ...[
                         const SizedBox(height: 10),
                         TextButton.icon(
                           onPressed: _ask,
                           icon: const Icon(Icons.refresh, size: 18),
-                          label: const Text('Qayta urinish'),
+                          label: Text(ref.t('action.retry')),
                         ),
                       ],
                     ],
@@ -393,7 +402,9 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
                     ),
                     if (hasOverride) ...[
                       const SizedBox(width: 6),
-                      const StatusChip(label: 'Saqlangan', color: AppColors.brand600),
+                      StatusChip(
+                          label: ref.t('mobile.contacts.savedChip'),
+                          color: AppColors.brand600),
                     ],
                   ],
                 ),

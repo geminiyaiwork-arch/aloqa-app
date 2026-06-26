@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:aloqa/core/config/app_config.dart';
+import 'package:aloqa/core/i18n/i18n_service.dart';
 import 'package:aloqa/core/theme/app_theme.dart';
 import 'package:aloqa/core/widgets/app_shell.dart';
 import 'package:aloqa/core/widgets/aloqa_card.dart';
@@ -54,18 +55,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             const SizedBox(height: 24),
             Row(
               children: [
-                const Expanded(child: _SectionLabel('Tezkor amallar')),
+                Expanded(child: _SectionLabel(ref.t('mobile.home.quickActions'))),
                 GestureDetector(
                   onTap: () => context.go('/new'),
-                  child: const Row(
+                  child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text('Barchasi',
-                          style: TextStyle(
+                      Text(ref.t('mobile.home.all'),
+                          style: const TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
                               color: _green)),
-                      Icon(Icons.chevron_right, size: 18, color: _green),
+                      const Icon(Icons.chevron_right, size: 18, color: _green),
                     ],
                   ),
                 ),
@@ -122,10 +123,10 @@ class _WelcomeHero extends ConsumerWidget {
     final name = (user?.name.trim().isNotEmpty == true) ? user!.name.trim() : '';
     final hour = DateTime.now().hour;
     final greet = hour < 12
-        ? 'Xayrli tong'
+        ? ref.t('mobile.greeting.morning')
         : hour < 18
-            ? 'Xayrli kun'
-            : 'Xayrli kech';
+            ? ref.t('mobile.greeting.day')
+            : ref.t('mobile.greeting.evening');
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
@@ -134,7 +135,10 @@ class _WelcomeHero extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '$greet${name.isEmpty ? '' : ', $name'} 👋',
+                ref.t('mobile.home.greetingWithName', {
+                  'greet': greet,
+                  'name': name.isEmpty ? '' : ', $name',
+                }),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
@@ -146,9 +150,9 @@ class _WelcomeHero extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 6),
-              const Text(
-                'ALOQA — bugungi uchrashuvlaringiz shu yerda.',
-                style: TextStyle(fontSize: 14, color: AppColors.slate500),
+              Text(
+                ref.t('mobile.home.subtitle'),
+                style: const TextStyle(fontSize: 14, color: AppColors.slate500),
               ),
             ],
           ),
@@ -232,29 +236,29 @@ class _StatsRow extends ConsumerWidget {
       _StatTile(
         icon: Icons.videocam_rounded,
         value: '${meetings.length}',
-        label: 'Uchrashuvlar',
-        sub: 'Jami uchrashuvlar',
+        label: ref.t('mobile.home.stat.meetings'),
+        sub: ref.t('mobile.home.stat.meetingsSub'),
         onTap: () => context.go('/home'),
       ),
       _StatTile(
         icon: Icons.event_available_rounded,
         value: '$weekCount',
-        label: 'Bu hafta',
-        sub: 'Uchrashuvlar',
+        label: ref.t('mobile.home.stat.thisWeek'),
+        sub: ref.t('mobile.home.stat.meetings'),
         onTap: () => context.go('/schedule'),
       ),
       _StatTile(
         icon: Icons.groups_rounded,
         value: recordings == null ? '0' : '${recordings.length}',
-        label: 'Yozuvlar',
-        sub: 'Saqlangan',
+        label: ref.t('mobile.home.stat.recordings'),
+        sub: ref.t('mobile.home.stat.saved'),
         onTap: () => context.go('/recordings'),
       ),
       _StatTile(
         icon: Icons.account_balance_wallet_rounded,
         value: wallet == null ? '0' : _short(wallet.balance),
-        label: 'Balans',
-        sub: 'Hisobingiz',
+        label: ref.t('mobile.home.stat.balance'),
+        sub: ref.t('mobile.home.stat.account'),
         onTap: () => context.go('/billing'),
       ),
     ];
@@ -344,13 +348,13 @@ class _StatTile extends StatelessWidget {
 }
 
 // ── Segmented tabs ──────────────────────────────────────────────────────────
-class _SegTabs extends StatelessWidget {
+class _SegTabs extends ConsumerWidget {
   const _SegTabs({required this.index, required this.onChanged});
   final int index;
   final ValueChanged<int> onChanged;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Container(
       padding: const EdgeInsets.all(5),
       decoration: BoxDecoration(
@@ -360,8 +364,8 @@ class _SegTabs extends StatelessWidget {
       ),
       child: Row(
         children: [
-          _seg(0, Icons.person_rounded, 'Mening uchrashuvlarim'),
-          _seg(1, Icons.groups_rounded, 'Ishtirokchi bo\'lganlarim'),
+          _seg(0, Icons.person_rounded, ref.t('mobile.home.tab.mine')),
+          _seg(1, Icons.groups_rounded, ref.t('mobile.home.tab.participated')),
         ],
       ),
     );
@@ -405,15 +409,15 @@ class _SegTabs extends StatelessWidget {
 }
 
 // ── Quick actions ───────────────────────────────────────────────────────────
-class _QuickActions extends StatelessWidget {
+class _QuickActions extends ConsumerWidget {
   const _QuickActions();
 
   @override
-  Widget build(BuildContext context) {
-    const actions = [
-      (Icons.videocam_rounded, 'Yangi uchrashuv', 'Darhol konferensiya boshlang', '/new'),
-      (Icons.call_rounded, 'Qo\'shilish', 'ID yoki havola orqali kiring', '/join'),
-      (Icons.event_available_rounded, 'Rejalashtirish', 'Kelajakdagi uchrashuvni belgilang', '/schedule'),
+  Widget build(BuildContext context, WidgetRef ref) {
+    final actions = [
+      (Icons.videocam_rounded, ref.t('dash.new'), ref.t('mobile.home.qa.newSub'), '/new'),
+      (Icons.call_rounded, ref.t('mobile.action.join'), ref.t('mobile.home.qa.joinSub'), '/join'),
+      (Icons.event_available_rounded, ref.t('dash.schedule'), ref.t('mobile.home.qa.scheduleSub'), '/schedule'),
     ];
     return Column(
       children: [
@@ -472,12 +476,12 @@ class _ActionCard extends StatelessWidget {
 }
 
 // ── Meeting card (compact, mockup-matched) ──────────────────────────────────
-class _MeetingCard extends StatelessWidget {
+class _MeetingCard extends ConsumerWidget {
   const _MeetingCard({required this.meeting, this.showManage = true});
   final Meeting meeting;
   final bool showManage;
 
-  ({String day, String mon, String rel}) _badge() {
+  ({String day, String mon, String rel}) _badge(WidgetRef ref) {
     final s = meeting.scheduledAt?.toLocal();
     final base = s ?? DateTime.now();
     final now = DateTime.now();
@@ -485,31 +489,36 @@ class _MeetingCard extends StatelessWidget {
     final d = DateTime(base.year, base.month, base.day);
     final diff = d.difference(today).inDays;
     final rel = diff == 0
-        ? 'Bugun'
+        ? ref.t('mobile.rel.today')
         : diff == 1
-            ? 'Ertaga'
+            ? ref.t('mobile.rel.tomorrow')
             : diff == -1
-                ? 'Kecha'
+                ? ref.t('mobile.rel.yesterday')
                 : '';
     return (day: '${base.day}', mon: _months[base.month - 1], rel: rel);
   }
 
-  String? _countdown() {
+  String? _countdown(WidgetRef ref) {
     final s = meeting.scheduledAt;
     if (s == null) return null;
     final diff = s.difference(DateTime.now());
     if (diff.isNegative) return null;
-    if (diff.inMinutes < 60) return 'Boshlanishiga ${diff.inMinutes} daqiqa';
+    if (diff.inMinutes < 60) {
+      return ref.t('mobile.meeting.countdownMinutes', {'minutes': '${diff.inMinutes}'});
+    }
     if (diff.inHours < 24) {
       final m = diff.inMinutes % 60;
-      return 'Boshlanishiga ${diff.inHours} soat${m > 0 ? ' $m daqiqa' : ''}';
+      return ref.t('mobile.meeting.countdownHours', {
+        'hours': '${diff.inHours}',
+        'rest': m > 0 ? ref.t('mobile.meeting.countdownHoursMinutes', {'minutes': '$m'}) : '',
+      });
     }
-    return 'Boshlanishiga ${diff.inDays} kun';
+    return ref.t('mobile.meeting.countdownDays', {'days': '${diff.inDays}'});
   }
 
-  String _timeRange() {
+  String _timeRange(WidgetRef ref) {
     final s = meeting.scheduledAt?.toLocal();
-    if (s == null) return 'Darhol';
+    if (s == null) return ref.t('mobile.meeting.now');
     String hm(DateTime t) =>
         '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
     final end = meeting.autoEndAt?.toLocal() ?? s.add(const Duration(hours: 1));
@@ -517,12 +526,14 @@ class _MeetingCard extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final badge = _badge();
-    final countdown = _countdown();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final badge = _badge(ref);
+    final countdown = _countdown(ref);
     final live = meeting.status == 'live';
     final dotColor = live ? _green : const Color(0xFF3B82F6);
-    final title = meeting.title.isEmpty ? 'Uchrashuv #${meeting.id}' : meeting.title;
+    final title = meeting.title.isEmpty
+        ? ref.t('mobile.meeting.untitled', {'id': '${meeting.id}'})
+        : meeting.title;
     final code = meeting.code ?? meeting.id;
     final count = meeting.participantsCount ?? 0;
 
@@ -604,18 +615,18 @@ class _MeetingCard extends StatelessWidget {
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                           onSelected: (v) {
                             if (v == 'link') {
-                              copy('${AppConfig.webOrigin}/m/$code/lobby', 'Havola nusxalandi');
+                              copy('${AppConfig.webOrigin}/m/$code/lobby', ref.tt('mobile.toast.linkCopied'));
                             } else if (v == 'id') {
-                              copy(code, 'ID nusxalandi');
+                              copy(code, ref.tt('mobile.toast.idCopied'));
                             } else if (v == 'manage') {
                               context.go('/meeting/${meeting.id}');
                             }
                           },
                           itemBuilder: (_) => [
-                            const PopupMenuItem(value: 'link', child: Text('🔗  Havolani nusxalash')),
-                            const PopupMenuItem(value: 'id', child: Text('🆔  ID nusxalash')),
+                            PopupMenuItem(value: 'link', child: Text(ref.t('mobile.menu.copyLink'))),
+                            PopupMenuItem(value: 'id', child: Text(ref.t('mobile.menu.copyId'))),
                             if (showManage)
-                              const PopupMenuItem(value: 'manage', child: Text('⚙️  Boshqaruv')),
+                              PopupMenuItem(value: 'manage', child: Text(ref.t('mobile.menu.manage'))),
                           ],
                         ),
                       ),
@@ -637,18 +648,19 @@ class _MeetingCard extends StatelessWidget {
                   const SizedBox(height: 12),
                   Row(
                     children: [
-                      _meta(Icons.access_time, _timeRange()),
+                      _meta(Icons.access_time, _timeRange(ref)),
                       const SizedBox(width: 14),
-                      _meta(Icons.people_outline, '$count ishtirokchi'),
+                      _meta(Icons.people_outline,
+                          ref.t('mobile.meeting.participantsCount', {'count': '$count'})),
                     ],
                   ),
                   const SizedBox(height: 12),
                   GestureDetector(
-                    onTap: () => copy(code, 'ID nusxalandi'),
+                    onTap: () => copy(code, ref.tt('mobile.toast.idCopied')),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text('ID: $code',
+                        Text(ref.t('mobile.meeting.idLabel', {'code': '$code'}),
                             style: const TextStyle(
                                 fontSize: 12.5,
                                 fontWeight: FontWeight.w600,
@@ -742,16 +754,16 @@ class _SectionLabel extends StatelessWidget {
   }
 }
 
-class _SecurityFooter extends StatelessWidget {
+class _SecurityFooter extends ConsumerWidget {
   const _SecurityFooter();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final links = [
-      (Icons.people_outline, 'Ishtirokchilar', '/employees'),
-      (Icons.play_circle_outline, 'Yozuvlar', '/recordings'),
-      (Icons.settings_outlined, 'Sozlamalar', '/settings'),
-      (Icons.bar_chart_rounded, 'Hisobotlar', '/billing'),
+      (Icons.people_outline, ref.t('mobile.home.links.participants'), '/employees'),
+      (Icons.play_circle_outline, ref.t('mobile.home.stat.recordings'), '/recordings'),
+      (Icons.settings_outlined, ref.t('mobile.home.links.settings'), '/settings'),
+      (Icons.bar_chart_rounded, ref.t('mobile.home.links.reports'), '/billing'),
     ];
     return AloqaCard(
       child: Column(
@@ -766,24 +778,24 @@ class _SecurityFooter extends StatelessWidget {
                 child: const Icon(Icons.verified_user, color: _green, size: 24),
               ),
               const SizedBox(width: 12),
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Xavfsiz uchrashuvlar',
-                        style: TextStyle(
+                    Text(ref.t('mobile.home.secureTitle'),
+                        style: const TextStyle(
                             fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.slate900)),
-                    SizedBox(height: 2),
-                    Text('Barcha ma\'lumotlaringiz himoyalangan.',
-                        style: TextStyle(fontSize: 12.5, color: AppColors.slate400)),
+                    const SizedBox(height: 2),
+                    Text(ref.t('mobile.home.secureSub'),
+                        style: const TextStyle(fontSize: 12.5, color: AppColors.slate400)),
                   ],
                 ),
               ),
             ],
           ),
           const SizedBox(height: 16),
-          const Text('Boshqaruv',
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.slate500)),
+          Text(ref.t('mobile.home.controlLabel'),
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.slate500)),
           const SizedBox(height: 10),
           Row(
             children: [
@@ -833,10 +845,10 @@ class _LoadingBlock extends StatelessWidget {
   }
 }
 
-class _EmptyMeetings extends StatelessWidget {
+class _EmptyMeetings extends ConsumerWidget {
   const _EmptyMeetings();
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return AloqaCard(
       padding: const EdgeInsets.symmetric(vertical: 44, horizontal: 24),
       child: Column(
@@ -848,18 +860,18 @@ class _EmptyMeetings extends StatelessWidget {
             child: const Icon(Icons.groups_outlined, size: 32, color: _green),
           ),
           const SizedBox(height: 16),
-          const Text('Hozircha uchrashuvlar yo\'q.',
+          Text(ref.t('mobile.home.emptyTitle'),
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.slate700)),
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.slate700)),
           const SizedBox(height: 6),
-          const Text('Yangi konferensiya yaratib ishni boshlang.',
+          Text(ref.t('mobile.home.emptySub'),
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 13.5, color: AppColors.slate400)),
+              style: const TextStyle(fontSize: 13.5, color: AppColors.slate400)),
           const SizedBox(height: 18),
           ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 260),
             child: GradientButton(
-              label: 'Hozir boshlash',
+              label: ref.t('dash.startNow'),
               icon: Icons.videocam,
               onPressed: () => context.go('/new'),
             ),
@@ -870,19 +882,19 @@ class _EmptyMeetings extends StatelessWidget {
   }
 }
 
-class _ParticipatedEmpty extends StatelessWidget {
+class _ParticipatedEmpty extends ConsumerWidget {
   const _ParticipatedEmpty();
   @override
-  Widget build(BuildContext context) {
-    return const AloqaCard(
-      padding: EdgeInsets.symmetric(vertical: 44, horizontal: 24),
+  Widget build(BuildContext context, WidgetRef ref) {
+    return AloqaCard(
+      padding: const EdgeInsets.symmetric(vertical: 44, horizontal: 24),
       child: Column(
         children: [
-          Icon(Icons.history_rounded, size: 44, color: AppColors.slate300),
-          SizedBox(height: 12),
-          Text('Siz ishtirok etgan uchrashuvlar shu yerda ko\'rinadi.',
+          const Icon(Icons.history_rounded, size: 44, color: AppColors.slate300),
+          const SizedBox(height: 12),
+          Text(ref.t('mobile.home.participatedEmpty'),
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 14, color: AppColors.slate500)),
+              style: const TextStyle(fontSize: 14, color: AppColors.slate500)),
         ],
       ),
     );

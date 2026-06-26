@@ -9,6 +9,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:aloqa/core/i18n/i18n_service.dart';
 import 'package:aloqa/core/theme/app_theme.dart';
 import 'package:aloqa/core/widgets/aloqa_card.dart';
 import 'package:aloqa/core/widgets/aloqa_input.dart';
@@ -82,7 +83,7 @@ class _EmployeesScreenState extends ConsumerState<EmployeesScreen> {
                 if (!dialogCtx.mounted) return;
                 setModal(() => busy = false);
                 ScaffoldMessenger.of(dialogCtx).showSnackBar(
-                  const SnackBar(content: Text('Xatolik yuz berdi')),
+                  SnackBar(content: Text(ref.tt('common.error'))),
                 );
               }
             }
@@ -118,10 +119,10 @@ class _EmployeesScreenState extends ConsumerState<EmployeesScreen> {
                                 color: AppColors.brand600, size: 22),
                           ),
                           const SizedBox(width: 12),
-                          const Expanded(
+                          Expanded(
                             child: Text(
-                              'Yangi hodim',
-                              style: TextStyle(
+                              ref.tt('mobile.employees.addModalTitle'),
+                              style: const TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
                                 color: AppColors.slate900,
@@ -143,8 +144,8 @@ class _EmployeesScreenState extends ConsumerState<EmployeesScreen> {
                       const SizedBox(height: 20),
                       AloqaInput(
                         controller: nameCtrl,
-                        label: 'Ism *',
-                        hint: 'Hodimning to\'liq ismi',
+                        label: ref.tt('mobile.employees.nameLabel'),
+                        hint: ref.tt('mobile.employees.nameHint'),
                         prefixIcon: Icons.badge_outlined,
                         textCapitalization: TextCapitalization.words,
                         onChanged: (_) => setModal(() {}),
@@ -152,20 +153,20 @@ class _EmployeesScreenState extends ConsumerState<EmployeesScreen> {
                       const SizedBox(height: 14),
                       AloqaInput(
                         controller: positionCtrl,
-                        label: 'Lavozim',
-                        hint: 'Masalan: Menejer',
+                        label: ref.tt('mobile.employees.positionLabel'),
+                        hint: ref.tt('mobile.employees.positionHint'),
                         prefixIcon: Icons.work_outline,
                       ),
                       const SizedBox(height: 24),
                       GradientButton(
-                        label: 'Saqlash',
+                        label: ref.tt('action.save'),
                         busy: busy,
                         icon: Icons.check,
                         onPressed: canSave ? save : null,
                       ),
                       const SizedBox(height: 10),
                       GhostButton(
-                        label: 'Bekor qilish',
+                        label: ref.tt('action.cancel'),
                         onPressed:
                             busy ? null : () => Navigator.of(dialogCtx).pop(),
                       ),
@@ -191,25 +192,25 @@ class _EmployeesScreenState extends ConsumerState<EmployeesScreen> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(18),
           ),
-          title: const Text(
-            'Hodimni o\'chirasizmi?',
-            style: TextStyle(
+          title: Text(
+            ref.tt('mobile.employees.deleteTitle'),
+            style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
               color: AppColors.slate900,
             ),
           ),
           content: Text(
-            '«${emp.name}» reestrdan o\'chiriladi. Bu amalni ortga qaytarib bo\'lmaydi.',
+            ref.tt('mobile.employees.deleteConfirm', {'name': emp.name}),
             style: const TextStyle(fontSize: 14, color: AppColors.slate600),
           ),
           actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogCtx).pop(false),
-              child: const Text(
-                'Bekor qilish',
-                style: TextStyle(color: AppColors.slate500),
+              child: Text(
+                ref.tt('action.cancel'),
+                style: const TextStyle(color: AppColors.slate500),
               ),
             ),
             FilledButton(
@@ -218,7 +219,7 @@ class _EmployeesScreenState extends ConsumerState<EmployeesScreen> {
                 minimumSize: const Size(96, 44),
               ),
               onPressed: () => Navigator.of(dialogCtx).pop(true),
-              child: const Text('O\'chirish'),
+              child: Text(ref.tt('mobile.action.delete')),
             ),
           ],
         );
@@ -239,7 +240,7 @@ class _EmployeesScreenState extends ConsumerState<EmployeesScreen> {
       // Rollback hide on failure.
       setState(() => _removing.remove(emp.id));
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Xatolik yuz berdi')),
+        SnackBar(content: Text(ref.tt('common.error'))),
       );
     }
   }
@@ -249,7 +250,7 @@ class _EmployeesScreenState extends ConsumerState<EmployeesScreen> {
 // MAIN content (attendance enabled)
 // ===========================================================================
 
-class _Main extends StatelessWidget {
+class _Main extends ConsumerWidget {
   const _Main({
     required this.res,
     required this.removing,
@@ -263,15 +264,18 @@ class _Main extends StatelessWidget {
   final void Function(Employee) onDelete;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final visible =
         res.employees.where((e) => !removing.contains(e.id)).toList();
     final count = visible.length;
     final max = res.maxEmployees;
     final atLimit = max > 0 && res.employees.length >= max;
 
-    final headerCounter =
-        'Hodimlar: ${res.employees.length}${max > 0 ? ' / $max' : ''}';
+    final headerCounter = max > 0
+        ? ref.t('mobile.employees.headerCounterMax',
+            {'count': '${res.employees.length}', 'max': '$max'})
+        : ref.t('mobile.employees.headerCounter',
+            {'count': '${res.employees.length}'});
 
     return ListView(
       padding: const EdgeInsets.symmetric(vertical: 4),
@@ -284,9 +288,9 @@ class _Main extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Hodimlar reestri',
-                      style: TextStyle(
+                    Text(
+                      ref.t('mobile.employees.rosterTitle'),
+                      style: const TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.bold,
                         color: AppColors.slate900,
@@ -307,7 +311,7 @@ class _Main extends StatelessWidget {
               const SizedBox(width: 12),
               _AddButton(
                 onPressed: atLimit ? null : onAdd,
-                disabledReason: atLimit ? 'Limit to\'ldi' : null,
+                disabledReason: atLimit ? ref.t('mobile.employees.limitReached') : null,
               ),
             ],
           ),
@@ -331,7 +335,7 @@ class _Main extends StatelessWidget {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'Tarifingiz bo\'yicha hodimlar soni chegarasiga ($max) yetdingiz.',
+                      ref.t('mobile.employees.limitWarning', {'max': '$max'}),
                       style: const TextStyle(
                         fontSize: 13,
                         color: AppColors.brand700,
@@ -460,15 +464,15 @@ class _EmployeeCard extends StatelessWidget {
   }
 }
 
-class _DeleteIconButton extends StatefulWidget {
+class _DeleteIconButton extends ConsumerStatefulWidget {
   const _DeleteIconButton({required this.onPressed});
   final VoidCallback onPressed;
 
   @override
-  State<_DeleteIconButton> createState() => _DeleteIconButtonState();
+  ConsumerState<_DeleteIconButton> createState() => _DeleteIconButtonState();
 }
 
-class _DeleteIconButtonState extends State<_DeleteIconButton> {
+class _DeleteIconButtonState extends ConsumerState<_DeleteIconButton> {
   bool _hover = false;
 
   @override
@@ -477,7 +481,7 @@ class _DeleteIconButtonState extends State<_DeleteIconButton> {
       onEnter: (_) => setState(() => _hover = true),
       onExit: (_) => setState(() => _hover = false),
       child: IconButton(
-        tooltip: 'O\'chirish',
+        tooltip: ref.t('mobile.action.delete'),
         splashRadius: 22,
         onPressed: widget.onPressed,
         icon: Icon(
@@ -552,19 +556,19 @@ class _Avatar extends StatelessWidget {
 // Add button (finite minimum size — never a bare full-width FilledButton)
 // ===========================================================================
 
-class _AddButton extends StatelessWidget {
+class _AddButton extends ConsumerWidget {
   const _AddButton({required this.onPressed, this.disabledReason});
 
   final VoidCallback? onPressed;
   final String? disabledReason;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final disabled = onPressed == null;
     final button = FilledButton.icon(
       onPressed: onPressed,
       icon: const Icon(Icons.add, size: 18),
-      label: const Text('Hodim qo\'shish'),
+      label: Text(ref.t('mobile.employees.addButton')),
       style: FilledButton.styleFrom(
         backgroundColor: AppColors.brand600,
         disabledBackgroundColor: AppColors.slate200,
@@ -590,11 +594,11 @@ class _AddButton extends StatelessWidget {
 // Photo placeholder for the add modal (upload deferred — image_picker absent)
 // ===========================================================================
 
-class _PhotoPlaceholder extends StatelessWidget {
+class _PhotoPlaceholder extends ConsumerWidget {
   const _PhotoPlaceholder();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Column(
       children: [
         Container(
@@ -613,7 +617,7 @@ class _PhotoPlaceholder extends StatelessWidget {
         OutlinedButton.icon(
           onPressed: null,
           icon: const Icon(Icons.image_outlined, size: 18),
-          label: const Text('Rasm tanlash'),
+          label: Text(ref.t('mobile.profile.pickImage')),
           style: OutlinedButton.styleFrom(
             disabledForegroundColor: AppColors.slate400,
             side: const BorderSide(color: AppColors.slate200),
@@ -625,9 +629,9 @@ class _PhotoPlaceholder extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 6),
-        const Text(
-          '(tez kunda)',
-          style: TextStyle(
+        Text(
+          ref.t('mobile.employees.photoSoon'),
+          style: const TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w500,
             color: AppColors.slate400,
@@ -642,16 +646,16 @@ class _PhotoPlaceholder extends StatelessWidget {
 // States: loading / error / gated / empty roster
 // ===========================================================================
 
-class _LoadingState extends StatelessWidget {
+class _LoadingState extends ConsumerWidget {
   const _LoadingState();
 
   @override
-  Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.only(top: 80),
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 80),
       child: Column(
         children: [
-          SizedBox(
+          const SizedBox(
             width: 28,
             height: 28,
             child: CircularProgressIndicator(
@@ -659,10 +663,10 @@ class _LoadingState extends StatelessWidget {
               valueColor: AlwaysStoppedAnimation<Color>(AppColors.brand600),
             ),
           ),
-          SizedBox(height: 16),
+          const SizedBox(height: 16),
           Text(
-            'Yuklanmoqda…',
-            style: TextStyle(
+            ref.t('common.loading'),
+            style: const TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w500,
               color: AppColors.slate400,
@@ -674,12 +678,12 @@ class _LoadingState extends StatelessWidget {
   }
 }
 
-class _ErrorState extends StatelessWidget {
+class _ErrorState extends ConsumerWidget {
   const _ErrorState({required this.onRetry});
   final VoidCallback onRetry;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Padding(
       padding: const EdgeInsets.only(top: 24),
       child: RevealUp(
@@ -699,23 +703,23 @@ class _ErrorState extends StatelessWidget {
                     color: AppColors.danger, size: 30),
               ),
               const SizedBox(height: 16),
-              const Text(
-                'Xatolik yuz berdi',
-                style: TextStyle(
+              Text(
+                ref.t('common.error'),
+                style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
                   color: AppColors.slate900,
                 ),
               ),
               const SizedBox(height: 6),
-              const Text(
-                'Hodimlar ro\'yxatini yuklab bo\'lmadi.',
+              Text(
+                ref.t('mobile.employees.loadFailed'),
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 14, color: AppColors.slate500),
+                style: const TextStyle(fontSize: 14, color: AppColors.slate500),
               ),
               const SizedBox(height: 20),
               GhostButton(
-                label: 'Qayta urinish',
+                label: ref.t('action.retry'),
                 leading: const Icon(Icons.refresh,
                     size: 18, color: AppColors.slate700),
                 onPressed: onRetry,
@@ -728,34 +732,33 @@ class _ErrorState extends StatelessWidget {
   }
 }
 
-class _GatedState extends StatelessWidget {
+class _GatedState extends ConsumerWidget {
   const _GatedState();
 
   @override
-  Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.only(top: 24),
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 24),
       child: RevealUp(
         child: AloqaCard(
-          padding: EdgeInsets.symmetric(vertical: 64, horizontal: 24),
+          padding: const EdgeInsets.symmetric(vertical: 64, horizontal: 24),
           child: Column(
             children: [
-              Text('📋', style: TextStyle(fontSize: 48)),
-              SizedBox(height: 18),
+              const Text('📋', style: TextStyle(fontSize: 48)),
+              const SizedBox(height: 18),
               Text(
-                'Davomat yoqilmagan',
-                style: TextStyle(
+                ref.t('mobile.employees.gatedTitle'),
+                style: const TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
                   color: AppColors.slate900,
                 ),
               ),
-              SizedBox(height: 8),
+              const SizedBox(height: 8),
               Text(
-                'Davomat moduli tarifingizda mavjud emas. '
-                'Hodimlar reestridan foydalanish uchun tarifingizni yangilang.',
+                ref.t('mobile.employees.gatedSub'),
                 textAlign: TextAlign.center,
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 14,
                   height: 1.5,
                   color: AppColors.slate500,
@@ -769,11 +772,11 @@ class _GatedState extends StatelessWidget {
   }
 }
 
-class _EmptyRoster extends StatelessWidget {
+class _EmptyRoster extends ConsumerWidget {
   const _EmptyRoster();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return AloqaCard(
       padding: const EdgeInsets.symmetric(vertical: 56, horizontal: 24),
       child: Column(
@@ -790,19 +793,19 @@ class _EmptyRoster extends StatelessWidget {
                 size: 32, color: AppColors.brand600),
           ),
           const SizedBox(height: 16),
-          const Text(
-            'Hali hodim qo\'shilmagan.',
-            style: TextStyle(
+          Text(
+            ref.t('mobile.employees.emptyTitle'),
+            style: const TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
               color: AppColors.slate700,
             ),
           ),
           const SizedBox(height: 6),
-          const Text(
-            'Davomatni kuzatish uchun birinchi hodimingizni qo\'shing.',
+          Text(
+            ref.t('mobile.employees.emptySub'),
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 14, color: AppColors.slate400),
+            style: const TextStyle(fontSize: 14, color: AppColors.slate400),
           ),
         ],
       ),

@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:aloqa/core/i18n/i18n_service.dart';
 import 'package:aloqa/core/theme/app_theme.dart';
 import 'package:aloqa/core/widgets/aloqa_card.dart';
 import 'package:aloqa/core/widgets/aloqa_input.dart';
@@ -60,11 +61,11 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
       if (!mounted) return;
       setState(() {
         _busy = false;
-        _error = 'Xatolik yuz berdi';
+        _error = ref.tt('common.error');
       });
       ScaffoldMessenger.of(context)
         ..clearSnackBars()
-        ..showSnackBar(const SnackBar(content: Text('Xatolik yuz berdi')));
+        ..showSnackBar(SnackBar(content: Text(ref.tt('common.error'))));
     }
   }
 
@@ -103,9 +104,9 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                           child: TextButton.icon(
                             onPressed: _busy ? null : () => context.go('/login'),
                             icon: const Icon(Icons.arrow_back, size: 18, color: AppColors.brand600),
-                            label: const Text(
-                              'Kirishga qaytish',
-                              style: TextStyle(
+                            label: Text(
+                              ref.t('mobile.forgot.backToLogin'),
+                              style: const TextStyle(
                                 color: AppColors.brand600,
                                 fontWeight: FontWeight.w600,
                                 fontSize: 14,
@@ -132,11 +133,11 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Center(
+          Center(
             child: Text(
-              'Parolni tiklash',
+              ref.t('mobile.forgot.title'),
               textAlign: TextAlign.center,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.w700,
                 color: AppColors.slate900,
@@ -144,29 +145,29 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
             ),
           ),
           const SizedBox(height: 8),
-          const Center(
+          Center(
             child: Text(
-              'Email manzilingizni kiriting — biz sizga tiklash havolasini yuboramiz.',
+              ref.t('mobile.forgot.subtitle'),
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 14, color: AppColors.slate500, height: 1.4),
+              style: const TextStyle(fontSize: 14, color: AppColors.slate500, height: 1.4),
             ),
           ),
           const SizedBox(height: 22),
           AloqaInput(
             controller: _email,
-            label: 'Email',
-            hint: 'siz@example.com',
+            label: ref.t('auth.email'),
+            hint: ref.t('mobile.login.emailHint'),
             prefixIcon: Icons.mail_outline,
             keyboardType: TextInputType.emailAddress,
             validator: (v) => (v == null || !RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(v.trim()))
-                ? 'Email noto\'g\'ri'
+                ? ref.tt('mobile.validation.emailInvalid')
                 : null,
           ),
           const SizedBox(height: 12),
           InlineErrorBanner(message: _error),
           if (_error != null && _error!.isNotEmpty) const SizedBox(height: 12),
           GradientButton(
-            label: 'Tiklash havolasini yuborish',
+            label: ref.t('mobile.forgot.submit'),
             icon: Icons.send_outlined,
             busy: _busy,
             onPressed: _busy ? null : _submit,
@@ -197,11 +198,11 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
           ),
         ),
         const SizedBox(height: 18),
-        const Center(
+        Center(
           child: Text(
-            'Havola yuborildi',
+            ref.t('mobile.forgot.sentTitle'),
             textAlign: TextAlign.center,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.w700,
               color: AppColors.slate900,
@@ -214,14 +215,13 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
             TextSpan(
               style: const TextStyle(fontSize: 14, color: AppColors.slate600, height: 1.5),
               children: [
-                const TextSpan(text: 'Agar '),
+                TextSpan(text: ref.t('mobile.forgot.sentPrefix')),
                 TextSpan(
-                  text: email.isEmpty ? 'ushbu email' : email,
+                  text: email.isEmpty ? ref.t('mobile.forgot.sentEmailFallback') : email,
                   style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.slate900),
                 ),
-                const TextSpan(
-                  text:
-                      ' ro\'yxatdan o\'tgan bo\'lsa, unga parolni tiklash havolasini yubordik. Pochta qutingizni tekshiring.',
+                TextSpan(
+                  text: ref.t('mobile.forgot.sentSuffix'),
                 ),
               ],
             ),
@@ -230,7 +230,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
         ),
         const SizedBox(height: 24),
         GradientButton(
-          label: 'Kirish',
+          label: ref.t('action.login'),
           icon: Icons.login_outlined,
           onPressed: () => context.go('/login'),
         ),

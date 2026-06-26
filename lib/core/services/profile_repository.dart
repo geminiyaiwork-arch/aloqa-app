@@ -101,6 +101,12 @@ class ProfileRepository {
   Future<void> revokeSession(String id) async {
     await _dio.delete<dynamic>('/auth/sessions/$id');
   }
+
+  /// FCM qurilma tokenини backendга yozish (push yuborish uchun).
+  Future<void> registerDeviceToken(String token, String platform) async {
+    await _dio.post<dynamic>('/me/device-token',
+        data: {'token': token, 'platform': platform});
+  }
 }
 
 final sessionsProvider =

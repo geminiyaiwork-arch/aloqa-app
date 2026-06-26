@@ -19,6 +19,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libsecret-1-dev libjsoncpp-dev
+      - name: Strip firebase (desktop/iOS CI'da push yo'q — APK lokalда firebase bilan)
+        run: sed -i.bak '/firebase_core:/d; /firebase_messaging:/d' pubspec.yaml && rm -f pubspec.yaml.bak
       - run: flutter pub get
       - run: flutter build linux --release --dart-define=ALOQA_API_BASE=https://api.aloqa.ucms.uz/api/v1 --dart-define=ALOQA_LIVEKIT_URL=wss://rtc.aloqa.ucms.uz
       - name: Package .tar.gz + .deb
@@ -72,6 +74,8 @@ jobs:
         with:
           flutter-version: '3.22.2'
           channel: stable
+      - name: Strip firebase (desktop/iOS CI'da push yo'q — APK lokalда firebase bilan)
+        run: sed -i.bak '/firebase_core:/d; /firebase_messaging:/d' pubspec.yaml && rm -f pubspec.yaml.bak
       - run: flutter pub get
       - run: flutter build windows --release --dart-define=ALOQA_API_BASE=https://api.aloqa.ucms.uz/api/v1 --dart-define=ALOQA_LIVEKIT_URL=wss://rtc.aloqa.ucms.uz
       - name: Zip
@@ -90,6 +94,8 @@ jobs:
         with:
           flutter-version: '3.22.2'
           channel: stable
+      - name: Strip firebase (desktop/iOS CI'da push yo'q — APK lokalда firebase bilan)
+        run: sed -i.bak '/firebase_core:/d; /firebase_messaging:/d' pubspec.yaml && rm -f pubspec.yaml.bak
       - run: flutter pub get
       - run: flutter build macos --release --dart-define=ALOQA_API_BASE=https://api.aloqa.ucms.uz/api/v1 --dart-define=ALOQA_LIVEKIT_URL=wss://rtc.aloqa.ucms.uz
       - name: DMG
@@ -111,6 +117,8 @@ jobs:
         with:
           flutter-version: '3.22.2'
           channel: stable
+      - name: Strip firebase (desktop/iOS CI'da push yo'q — APK lokalда firebase bilan)
+        run: sed -i.bak '/firebase_core:/d; /firebase_messaging:/d' pubspec.yaml && rm -f pubspec.yaml.bak
       - run: flutter pub get
       - run: flutter build ios --release --no-codesign --dart-define=ALOQA_API_BASE=https://api.aloqa.ucms.uz/api/v1 --dart-define=ALOQA_LIVEKIT_URL=wss://rtc.aloqa.ucms.uz
       - name: Package unsigned .ipa

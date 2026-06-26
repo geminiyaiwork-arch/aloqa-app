@@ -7,12 +7,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/config/app_config.dart';
 import 'core/i18n/i18n_service.dart';
 import 'core/router/app_router.dart';
+import 'core/services/push_service.dart';
 import 'core/theme/app_theme.dart';
+import 'features/auth/auth_provider.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // TODO: Firebase.initializeApp() once google-services.json / plist + a
-  // generated firebase_options.dart are added (push notifications, TZ §2.10).
+  // Push (FCM) — Android/iOS'да Firebase'ni ishga tushiradi; desktopда jim o'tadi.
+  await PushService.instance.initFirebase();
   runApp(const ProviderScope(child: AloqaApp()));
 }
 
@@ -24,6 +26,13 @@ class AloqaApp extends ConsumerWidget {
     final router = ref.watch(routerProvider);
     final locale = ref.watch(localeProvider);
     final isRtl = ref.watch(i18nProvider.select((s) => s.isRtl));
+
+    // Login bo'lgach FCM tokenни backendга yozamiz (push uchun).
+    ref.listen(authProvider, (prev, next) {
+      if (next.user != null) {
+        PushService.instance.registerToken();
+      }
+    });
 
     return MaterialApp.router(
       title: AppConfig.appName,

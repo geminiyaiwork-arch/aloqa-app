@@ -6,7 +6,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 
 # Version: bump build number every APK. 1.1.1+5 = dashboard widgets (welcome
 # header + live stat tiles: meetings/this-week/recordings/balance).
-version: 1.3.3+23
+version: 1.3.4+24
 
 environment:
   sdk: '>=3.4.3 <4.0.0'
@@ -53,10 +53,11 @@ dependencies:
   # 2.4.0+ needs Dart 3.6. PIN 2.2.6 — do not bump on Flutter 3.22.
   livekit_client: 2.2.6
 
-  # Push notifications (FCM) — REMOVED for now: firebase_core/firebase_messaging
-  # break the desktop (Linux/Windows/macOS) and iOS CI builds (pod/cmake) and are
-  # currently unused (only a TODO in main.dart). Re-add with google-services.json +
-  # firebase_options.dart when push is wired (TZ §2.10).
+  # Push notifications (FCM) — Android/iOS only. CI workflow STRIPS these for the
+  # Linux/Windows desktop builds (firebase has no desktop impl → cmake fails).
+  # Pinned exact for Flutter 3.22.2 / Dart 3.4.3.
+  firebase_core: 4.7.0
+  firebase_messaging: 16.2.0
   flutter_contacts: ^1.1.9+2
 
   # Avatar: pick from gallery (crop is done in-app, pure Dart — no native cropper,

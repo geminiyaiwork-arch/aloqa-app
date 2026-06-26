@@ -64,33 +64,16 @@ jobs:
             aloqa-linux-x64.deb
 
   # ─────────────── Windows (.zip) ───────────────
-  # windows-2022 da faqat VS 2022 bor; Flutter 3.22.2 VS2019 generatorини
-  # qidiradi → fail. Shuning uchun Windows uchun 3.24.5 (VS2022) + 3.24 patch.
+  # MUHIM: windows-latest = windows-2025 (VS Flutter'ga ko'rinmaydi → VS2019
+  # fallback → fail). windows-2022 = VS2022 to'g'ri aniqlanadi (master shunday).
   windows:
-    runs-on: windows-latest
+    runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.5'
+          flutter-version: '3.22.2'
           channel: stable
-      - name: 3.24 patch (CardTheme + firebase'siz stub)
-        shell: bash
-        run: |
-          sed -i 's/cardTheme: CardTheme(/cardTheme: CardThemeData(/' lib/core/theme/app_theme.dart
-          sed -i '/firebase_core:/d; /firebase_messaging:/d' pubspec.yaml
-          rm -f pubspec.lock
-          cat > lib/core/services/push_service.dart <<'DART'
-          /// Windows build stub — firebase yo'q (desktopда push kerakmas).
-          library;
-
-          class PushService {
-            PushService._();
-            static final PushService instance = PushService._();
-            Future<void> initFirebase() async {}
-            Future<void> registerToken() async {}
-          }
-          DART
       - run: flutter pub get
       - run: flutter build windows --release --dart-define=ALOQA_API_BASE=https://api.aloqa.ucms.uz/api/v1 --dart-define=ALOQA_LIVEKIT_URL=wss://rtc.aloqa.ucms.uz
       - name: Zip

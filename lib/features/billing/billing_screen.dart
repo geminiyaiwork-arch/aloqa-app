@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:aloqa/core/format.dart';
+import 'package:aloqa/core/i18n/i18n_service.dart';
 import 'package:aloqa/core/theme/app_theme.dart';
 import 'package:aloqa/core/widgets/aloqa_card.dart';
 import 'package:aloqa/core/widgets/app_shell.dart';
@@ -16,7 +17,8 @@ import 'package:aloqa/features/auth/auth_provider.dart';
 import 'package:aloqa/features/billing/billing_repository.dart';
 
 /// "150 000 so'm" yoki bepul reja uchun "Bepul".
-String _planPrice(Plan p) => p.price > 0 ? som(p.price) : 'Bepul';
+String _planPrice(Plan p, WidgetRef ref) =>
+    p.price > 0 ? som(p.price) : ref.tt('billing.price.free');
 
 class BillingScreen extends ConsumerStatefulWidget {
   const BillingScreen({super.key});
@@ -43,15 +45,15 @@ class _BillingScreenState extends ConsumerState<BillingScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const InlineErrorBanner(
-                message: "Ma'lumotlarni yuklab bo'lmadi. Qayta urinib ko'ring.",
+              InlineErrorBanner(
+                message: ref.t('mobile.billing.loadError'),
               ),
               const SizedBox(height: 16),
               Center(
                 child: SizedBox(
                   width: 220,
                   child: GradientButton(
-                    label: 'Qayta yuklash',
+                    label: ref.t('mobile.billing.reload'),
                     icon: Icons.refresh,
                     onPressed: () => ref.invalidate(billingProvider),
                   ),
@@ -129,15 +131,15 @@ class _BillingBody extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SectionHeading("To'lovlar tarixi"),
+                SectionHeading(ref.t('billing.tx.title')),
                 const SizedBox(height: 16),
                 if (txs.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 28),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 28),
                     child: Center(
                       child: Text(
-                        "Hozircha to'lov yo'q.",
-                        style: TextStyle(
+                        ref.t('billing.tx.empty'),
+                        style: const TextStyle(
                           color: AppColors.slate400,
                           fontSize: 14,
                         ),
@@ -165,24 +167,25 @@ class _BillingBody extends ConsumerWidget {
         const SizedBox(height: 28),
 
         // ── (3) Rejalar ────────────────────────────────────────────────
-        const RevealUp(
+        RevealUp(
           delayMs: 120,
           child: Padding(
-            padding: EdgeInsets.only(bottom: 4),
-            child: SectionHeading('Tariflar'),
+            padding: const EdgeInsets.only(bottom: 4),
+            child: SectionHeading(ref.t('billing.plans.title')),
           ),
         ),
         const SizedBox(height: 12),
         if (plans.isEmpty)
-          const RevealUp(
+          RevealUp(
             delayMs: 160,
             child: AloqaCard(
               child: Padding(
-                padding: EdgeInsets.symmetric(vertical: 28),
+                padding: const EdgeInsets.symmetric(vertical: 28),
                 child: Center(
                   child: Text(
-                    "Tariflar hozircha mavjud emas.",
-                    style: TextStyle(color: AppColors.slate400, fontSize: 14),
+                    ref.t('mobile.billing.plansEmpty'),
+                    style: const TextStyle(
+                        color: AppColors.slate400, fontSize: 14),
                   ),
                 ),
               ),
@@ -273,14 +276,14 @@ class _BillingBody extends ConsumerWidget {
 // ════════════════════════════════════════════════════════════════════
 // BALANCE CARD (gradient brand600 -> brand700)
 // ════════════════════════════════════════════════════════════════════
-class _BalanceCard extends StatelessWidget {
+class _BalanceCard extends ConsumerWidget {
   const _BalanceCard({required this.wallet, required this.onTopup});
 
   final WalletInfo wallet;
   final VoidCallback onTopup;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -319,7 +322,7 @@ class _BalanceCard extends StatelessWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  'Hisobingizdagi balans',
+                  ref.t('billing.balance.title'),
                   style: TextStyle(
                     color: Colors.white.withOpacity(0.85),
                     fontSize: 14,
@@ -353,20 +356,20 @@ class _BalanceCard extends StatelessWidget {
               child: InkWell(
                 borderRadius: BorderRadius.circular(999),
                 onTap: onTopup,
-                child: const Padding(
-                  padding: EdgeInsets.symmetric(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
                     horizontal: 20,
                     vertical: 12,
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.add_rounded,
+                      const Icon(Icons.add_rounded,
                           size: 18, color: AppColors.brand700),
-                      SizedBox(width: 6),
+                      const SizedBox(width: 6),
                       Text(
-                        "To'ldirish",
-                        style: TextStyle(
+                        ref.t('billing.balance.topup'),
+                        style: const TextStyle(
                           color: AppColors.brand700,
                           fontWeight: FontWeight.w700,
                           fontSize: 14,
@@ -387,16 +390,17 @@ class _BalanceCard extends StatelessWidget {
 // ════════════════════════════════════════════════════════════════════
 // SUBSCRIPTION CARD
 // ════════════════════════════════════════════════════════════════════
-class _SubscriptionCard extends StatelessWidget {
+class _SubscriptionCard extends ConsumerWidget {
   const _SubscriptionCard({required this.wallet});
 
   final WalletInfo wallet;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final sub = wallet.subscription;
-    final planName =
-        (sub?.plan != null && sub!.plan!.isNotEmpty) ? sub.plan! : 'Bepul reja';
+    final planName = (sub?.plan != null && sub!.plan!.isNotEmpty)
+        ? sub.plan!
+        : ref.t('billing.subscription.freePlan');
     final hasExpiry = sub?.expiresAt != null;
 
     return Container(
@@ -432,10 +436,10 @@ class _SubscriptionCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 12),
-              const Expanded(
+              Expanded(
                 child: Text(
-                  'Joriy tarif',
-                  style: TextStyle(
+                  ref.t('billing.subscription.current'),
+                  style: const TextStyle(
                     color: AppColors.slate500,
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -456,8 +460,9 @@ class _SubscriptionCard extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             hasExpiry
-                ? 'Amal qiladi: ${fmtDate(sub!.expiresAt)} gacha'
-                : 'Muddatsiz amal qiladi',
+                ? ref.t('mobile.billing.subscription.expiresUntil',
+                    {'date': fmtDate(sub!.expiresAt)})
+                : ref.t('mobile.billing.subscription.permanent'),
             style: const TextStyle(
               color: AppColors.slate400,
               fontSize: 13,
@@ -473,13 +478,13 @@ class _SubscriptionCard extends StatelessWidget {
 // ════════════════════════════════════════════════════════════════════
 // TRANSACTION ROW
 // ════════════════════════════════════════════════════════════════════
-class _TxRow extends StatelessWidget {
+class _TxRow extends ConsumerWidget {
   const _TxRow({required this.tx});
 
   final WalletTx tx;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final isTop = tx.isTopup;
     final st = txStatusStyle(tx.status);
     return Padding(
@@ -507,7 +512,9 @@ class _TxRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  isTop ? "Balans to'ldirish" : 'Tarif sotib olish',
+                  isTop
+                      ? ref.t('billing.tx.topup')
+                      : ref.t('billing.tx.planPurchase'),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -555,7 +562,7 @@ class _TxRow extends StatelessWidget {
 // ════════════════════════════════════════════════════════════════════
 // PLAN CARD
 // ════════════════════════════════════════════════════════════════════
-class _PlanCard extends StatelessWidget {
+class _PlanCard extends ConsumerWidget {
   const _PlanCard({
     required this.plan,
     required this.isCurrent,
@@ -567,7 +574,7 @@ class _PlanCard extends StatelessWidget {
   final VoidCallback onChoose;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final highlighted = (plan.slug ?? '').toLowerCase() == 'pro';
     final isPaid = plan.price > 0;
 
@@ -617,9 +624,9 @@ class _PlanCard extends StatelessWidget {
                     color: AppColors.brand600,
                     borderRadius: BorderRadius.circular(999),
                   ),
-                  child: const Text(
-                    'Tavsiya',
-                    style: TextStyle(
+                  child: Text(
+                    ref.t('billing.plans.recommended'),
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
@@ -633,7 +640,7 @@ class _PlanCard extends StatelessWidget {
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
             child: Text(
-              _planPrice(plan),
+              _planPrice(plan, ref),
               style: const TextStyle(
                 color: AppColors.brand700,
                 fontSize: 26,
@@ -643,9 +650,9 @@ class _PlanCard extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           if (plan.features.isEmpty)
-            const Text(
-              'Asosiy imkoniyatlar',
-              style: TextStyle(color: AppColors.slate400, fontSize: 13),
+            Text(
+              ref.t('mobile.billing.basicFeatures'),
+              style: const TextStyle(color: AppColors.slate400, fontSize: 13),
             )
           else
             ...plan.features.map(
@@ -681,10 +688,12 @@ class _PlanCard extends StatelessWidget {
           const SizedBox(height: 18),
           // Tugma: joriy reja bo'lsa o'chirilgan; aks holda Tanlash/Boshlash.
           if (isCurrent)
-            const _DisabledPill(label: 'Joriy reja')
+            _DisabledPill(label: ref.t('billing.plans.currentPlan'))
           else
             GradientButton(
-              label: isPaid ? 'Tanlash' : 'Boshlash',
+              label: isPaid
+                  ? ref.t('billing.plans.select')
+                  : ref.t('mobile.billing.plan.start'),
               icon: isPaid
                   ? Icons.arrow_forward_rounded
                   : Icons.play_arrow_rounded,
@@ -819,17 +828,17 @@ class _ProviderTile extends StatelessWidget {
 // ════════════════════════════════════════════════════════════════════
 // TOPUP DIALOG
 // ════════════════════════════════════════════════════════════════════
-class _TopupDialog extends StatefulWidget {
+class _TopupDialog extends ConsumerStatefulWidget {
   const _TopupDialog({required this.providers, required this.onDone});
 
   final List<String> providers;
   final VoidCallback onDone;
 
   @override
-  State<_TopupDialog> createState() => _TopupDialogState();
+  ConsumerState<_TopupDialog> createState() => _TopupDialogState();
 }
 
-class _TopupDialogState extends State<_TopupDialog> {
+class _TopupDialogState extends ConsumerState<_TopupDialog> {
   static const _quick = [50000, 100000, 200000, 500000];
   final _amountCtrl = TextEditingController(text: '100000');
   late String _provider = widget.providers.first;
@@ -864,7 +873,7 @@ class _TopupDialogState extends State<_TopupDialog> {
       if (!mounted) return;
       setState(() {
         _busy = false;
-        _error = 'Xatolik yuz berdi';
+        _error = ref.tt('common.error');
       });
     }
   }
@@ -872,11 +881,11 @@ class _TopupDialogState extends State<_TopupDialog> {
   @override
   Widget build(BuildContext context) {
     return _ModalScaffold(
-      title: "Balansni to'ldirish",
+      title: ref.t('billing.topup.title'),
       child: _sent
           ? _SentBlock(
-              message: "✅ So'rov yuborildi",
-              hint: "To'lov tasdiqlangach balans yangilanadi.",
+              message: '✅ ${ref.t('billing.sent.title')}',
+              hint: ref.t('mobile.billing.topup.sentHint'),
               onClose: () {
                 Navigator.of(context).pop();
                 widget.onDone();
@@ -888,9 +897,9 @@ class _TopupDialogState extends State<_TopupDialog> {
               children: [
                 InlineErrorBanner(message: _error),
                 if (_error != null) const SizedBox(height: 12),
-                const Text(
-                  'Summa',
-                  style: TextStyle(
+                Text(
+                  ref.t('billing.topup.amount'),
+                  style: const TextStyle(
                     color: AppColors.slate600,
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
@@ -903,7 +912,7 @@ class _TopupDialogState extends State<_TopupDialog> {
                   enabled: !_busy,
                   onChanged: (_) => setState(() {}),
                   decoration: InputDecoration(
-                    suffixText: "so'm",
+                    suffixText: ref.t('common.som'),
                     hintText: '100000',
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -943,9 +952,9 @@ class _TopupDialogState extends State<_TopupDialog> {
                   ],
                 ),
                 const SizedBox(height: 18),
-                const Text(
-                  "To'lov usuli",
-                  style: TextStyle(
+                Text(
+                  ref.t('billing.payment.method'),
+                  style: const TextStyle(
                     color: AppColors.slate600,
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
@@ -961,15 +970,16 @@ class _TopupDialogState extends State<_TopupDialog> {
                 ),
                 const SizedBox(height: 20),
                 if (!_valid)
-                  const Padding(
-                    padding: EdgeInsets.only(bottom: 8),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
                     child: Text(
-                      "Eng kam summa — 1 000 so'm.",
-                      style: TextStyle(color: AppColors.slate400, fontSize: 12),
+                      ref.t('mobile.billing.topup.minHint'),
+                      style: const TextStyle(
+                          color: AppColors.slate400, fontSize: 12),
                     ),
                   ),
                 GradientButton(
-                  label: "To'lash",
+                  label: ref.t('billing.payment.pay'),
                   icon: Icons.lock_rounded,
                   busy: _busy,
                   onPressed: _valid ? _submit : null,
@@ -977,7 +987,7 @@ class _TopupDialogState extends State<_TopupDialog> {
                 const SizedBox(height: 8),
                 Center(
                   child: GhostButton(
-                    label: 'Bekor qilish',
+                    label: ref.t('action.cancel'),
                     onPressed:
                         _busy ? null : () => Navigator.of(context).pop(),
                   ),
@@ -991,7 +1001,7 @@ class _TopupDialogState extends State<_TopupDialog> {
 // ════════════════════════════════════════════════════════════════════
 // PLAN DIALOG
 // ════════════════════════════════════════════════════════════════════
-class _PlanDialog extends StatefulWidget {
+class _PlanDialog extends ConsumerStatefulWidget {
   const _PlanDialog({
     required this.plan,
     required this.providers,
@@ -1003,10 +1013,10 @@ class _PlanDialog extends StatefulWidget {
   final VoidCallback onDone;
 
   @override
-  State<_PlanDialog> createState() => _PlanDialogState();
+  ConsumerState<_PlanDialog> createState() => _PlanDialogState();
 }
 
-class _PlanDialogState extends State<_PlanDialog> {
+class _PlanDialogState extends ConsumerState<_PlanDialog> {
   late String _provider = widget.providers.first;
   bool _busy = false;
   bool _done = false;
@@ -1030,7 +1040,7 @@ class _PlanDialogState extends State<_PlanDialog> {
       if (!mounted) return;
       setState(() {
         _busy = false;
-        _error = 'Xatolik yuz berdi';
+        _error = ref.tt('common.error');
       });
     }
   }
@@ -1039,11 +1049,11 @@ class _PlanDialogState extends State<_PlanDialog> {
   Widget build(BuildContext context) {
     final plan = widget.plan;
     return _ModalScaffold(
-      title: "Tarifni rasmiylashtirish",
+      title: ref.t('mobile.billing.plan.formalizeTitle'),
       child: _done
           ? _SentBlock(
-              message: "✅ So'rov yuborildi",
-              hint: "To'lov tasdiqlangach tarif faollashadi.",
+              message: '✅ ${ref.t('billing.sent.title')}',
+              hint: ref.t('mobile.billing.plan.sentHint'),
               onClose: () {
                 Navigator.of(context).pop();
                 widget.onDone();
@@ -1077,9 +1087,9 @@ class _PlanDialogState extends State<_PlanDialog> {
                               ),
                             ),
                             const SizedBox(height: 2),
-                            const Text(
-                              'Tanlangan tarif',
-                              style: TextStyle(
+                            Text(
+                              ref.t('billing.plan.selected'),
+                              style: const TextStyle(
                                 color: AppColors.slate500,
                                 fontSize: 12,
                                 fontWeight: FontWeight.w500,
@@ -1089,7 +1099,7 @@ class _PlanDialogState extends State<_PlanDialog> {
                         ),
                       ),
                       Text(
-                        _planPrice(plan),
+                        _planPrice(plan, ref),
                         style: const TextStyle(
                           color: AppColors.brand700,
                           fontSize: 18,
@@ -1100,9 +1110,9 @@ class _PlanDialogState extends State<_PlanDialog> {
                   ),
                 ),
                 const SizedBox(height: 18),
-                const Text(
-                  "To'lov usuli",
-                  style: TextStyle(
+                Text(
+                  ref.t('billing.payment.method'),
+                  style: const TextStyle(
                     color: AppColors.slate600,
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
@@ -1118,7 +1128,9 @@ class _PlanDialogState extends State<_PlanDialog> {
                 ),
                 const SizedBox(height: 20),
                 GradientButton(
-                  label: plan.price > 0 ? "To'lash va o'tish" : "Tarifga o'tish",
+                  label: plan.price > 0
+                      ? ref.t('mobile.billing.plan.payAndSwitch')
+                      : ref.t('mobile.billing.plan.switchTo'),
                   icon: Icons.lock_rounded,
                   busy: _busy,
                   onPressed: _submit,
@@ -1126,7 +1138,7 @@ class _PlanDialogState extends State<_PlanDialog> {
                 const SizedBox(height: 8),
                 Center(
                   child: GhostButton(
-                    label: 'Bekor qilish',
+                    label: ref.t('action.cancel'),
                     onPressed:
                         _busy ? null : () => Navigator.of(context).pop(),
                   ),
@@ -1192,7 +1204,7 @@ class _ModalScaffold extends StatelessWidget {
   }
 }
 
-class _SentBlock extends StatelessWidget {
+class _SentBlock extends ConsumerWidget {
   const _SentBlock({
     required this.message,
     required this.hint,
@@ -1204,7 +1216,7 @@ class _SentBlock extends StatelessWidget {
   final VoidCallback onClose;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
@@ -1238,7 +1250,7 @@ class _SentBlock extends StatelessWidget {
           style: const TextStyle(color: AppColors.slate500, fontSize: 13),
         ),
         const SizedBox(height: 20),
-        GradientButton(label: 'Yopish', onPressed: onClose),
+        GradientButton(label: ref.t('action.close'), onPressed: onClose),
       ],
     );
   }

@@ -17,39 +17,46 @@ import '../theme/app_theme.dart';
 import 'aloqa_logo.dart';
 
 class _NavItem {
-  const _NavItem(this.path, this.icon, this.label);
+  const _NavItem(this.path, this.icon, this.labelKey);
   final String path;
   final IconData icon;
-  final String label;
+
+  /// i18n key — resolved with `ref.t(labelKey)` at render time.
+  final String labelKey;
 }
 
 const _navItems = [
-  _NavItem('/home', Icons.home_outlined, 'Uchrashuvlarim'),
-  _NavItem('/new', Icons.videocam_outlined, 'Yangi'),
-  _NavItem('/schedule', Icons.calendar_today_outlined, 'Reja'),
-  _NavItem('/recordings', Icons.video_library_outlined, 'Yozuvlar'),
-  _NavItem('/contacts', Icons.contacts_outlined, 'Kontaktlar'),
-  _NavItem('/employees', Icons.people_outline, 'Davomat'),
-  _NavItem('/billing', Icons.account_balance_wallet_outlined, 'Hisob'),
-  _NavItem('/profile', Icons.person_outline, 'Profil'),
-  _NavItem('/settings', Icons.settings_outlined, 'Sozlamalar'),
+  _NavItem('/home', Icons.home_outlined, 'mobile.nav.myMeetings'),
+  _NavItem('/new', Icons.videocam_outlined, 'mobile.nav.new'),
+  _NavItem('/schedule', Icons.calendar_today_outlined, 'mobile.nav.schedule'),
+  _NavItem('/recordings', Icons.video_library_outlined, 'mobile.nav.recordings'),
+  _NavItem('/contacts', Icons.contacts_outlined, 'mobile.nav.contacts'),
+  _NavItem('/employees', Icons.people_outline, 'mobile.nav.attendance'),
+  _NavItem('/billing', Icons.account_balance_wallet_outlined, 'mobile.nav.billing'),
+  _NavItem('/profile', Icons.person_outline, 'mobile.nav.profile'),
+  _NavItem('/settings', Icons.settings_outlined, 'mobile.nav.settings'),
 ];
 
-const _titles = {
-  '/home': 'Uchrashuvlarim',
-  '/new': 'Yangi uchrashuv',
-  '/join': 'Qo\'shilish',
-  '/schedule': 'Rejalashtirish',
-  '/recordings': 'Yozuvlar',
-  '/contacts': 'Kontaktlar',
-  '/employees': 'Davomat',
-  '/billing': 'Hisob va to\'lov',
-  '/profile': 'Profil',
-  '/settings': 'Sozlamalar',
-  '/meeting/:id': 'Uchrashuvni boshqarish',
+// Route -> title i18n key (resolved per-render via `ref.t`). Brand fallback.
+const _titleKeys = {
+  '/home': 'mobile.nav.myMeetings',
+  '/new': 'mobile.title.new',
+  '/join': 'mobile.title.join',
+  '/schedule': 'mobile.title.schedule',
+  '/recordings': 'mobile.nav.recordings',
+  '/contacts': 'mobile.nav.contacts',
+  '/employees': 'mobile.nav.attendance',
+  '/billing': 'mobile.title.billing',
+  '/profile': 'mobile.nav.profile',
+  '/settings': 'mobile.nav.settings',
+  '/meeting/:id': 'mobile.title.manage',
 };
 
-String _titleFor(String path) => _titles[path] ?? 'ALOQA';
+/// Resolved screen title for [path] (falls back to the ALOQA brand).
+String _titleFor(WidgetRef ref, String path) {
+  final key = _titleKeys[path];
+  return key == null ? 'ALOQA' : ref.t(key);
+}
 
 bool _isActive(String itemPath, String currentPath) {
   if (itemPath == '/home') return currentPath == '/home';
@@ -120,26 +127,28 @@ class AloqaAppShell extends StatelessWidget {
 }
 
 class _BottomTab {
-  const _BottomTab(this.path, this.icon, this.label);
+  const _BottomTab(this.path, this.icon, this.labelKey);
   final String path;
   final IconData icon;
-  final String label;
+
+  /// i18n key — resolved with `ref.t(labelKey)` at render time.
+  final String labelKey;
 }
 
 const _bottomTabs = [
-  _BottomTab('/home', Icons.home_rounded, 'Asosiy'),
-  _BottomTab('/schedule', Icons.event_rounded, 'Uchrashuvlar'),
-  _BottomTab('/new', Icons.add, 'Yangi'), // center FAB
-  _BottomTab('/messages', Icons.forum_outlined, 'Xabarlar'),
-  _BottomTab('/settings', Icons.settings_rounded, 'Sozlamalar'),
+  _BottomTab('/home', Icons.home_rounded, 'mobile.tab.home'),
+  _BottomTab('/schedule', Icons.event_rounded, 'mobile.tab.meetings'),
+  _BottomTab('/new', Icons.add, 'mobile.tab.new'), // center FAB
+  _BottomTab('/messages', Icons.forum_outlined, 'mobile.tab.messages'),
+  _BottomTab('/settings', Icons.settings_rounded, 'mobile.tab.settings'),
 ];
 
-class _BottomNav extends StatelessWidget {
+class _BottomNav extends ConsumerWidget {
   const _BottomNav({required this.currentPath});
   final String currentPath;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final bottomInset = MediaQuery.of(context).padding.bottom;
     return SizedBox(
       height: 64 + bottomInset,
@@ -167,7 +176,7 @@ class _BottomNav extends StatelessWidget {
                     Expanded(
                       child: i == 2
                           ? const SizedBox.shrink()
-                          : _tab(context, _bottomTabs[i]),
+                          : _tab(context, ref, _bottomTabs[i]),
                     ),
                 ],
               ),
@@ -178,14 +187,14 @@ class _BottomNav extends StatelessWidget {
             top: -14,
             left: 0,
             right: 0,
-            child: Center(child: _fab(context)),
+            child: Center(child: _fab(context, ref)),
           ),
         ],
       ),
     );
   }
 
-  Widget _tab(BuildContext context, _BottomTab t) {
+  Widget _tab(BuildContext context, WidgetRef ref, _BottomTab t) {
     final active = _isActive(t.path, currentPath);
     return InkWell(
       borderRadius: BorderRadius.circular(14),
@@ -201,7 +210,7 @@ class _BottomNav extends StatelessWidget {
                 size: 24,
                 color: active ? AppColors.brand600 : AppColors.slate400),
             const SizedBox(height: 3),
-            Text(t.label,
+            Text(ref.t(t.labelKey),
                 style: TextStyle(
                     fontSize: 11,
                     fontWeight: active ? FontWeight.w700 : FontWeight.w500,
@@ -212,7 +221,7 @@ class _BottomNav extends StatelessWidget {
     );
   }
 
-  Widget _fab(BuildContext context) {
+  Widget _fab(BuildContext context, WidgetRef ref) {
     return GestureDetector(
       onTap: () => context.go('/new'),
       child: Column(
@@ -240,8 +249,8 @@ class _BottomNav extends StatelessWidget {
             child: const Icon(Icons.add, color: Colors.white, size: 28),
           ),
           const SizedBox(height: 2),
-          const Text('Yangi',
-              style: TextStyle(
+          Text(ref.t('mobile.nav.new'),
+              style: const TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
                   color: AppColors.slate500)),
@@ -311,7 +320,8 @@ class _SideNav extends ConsumerWidget {
               children: [
                 for (final item in _navItems)
                   _NavTile(
-                    item: item,
+                    icon: item.icon,
+                    label: ref.t(item.labelKey),
                     active: _isActive(item.path, currentPath),
                     onTap: () => _go(context, item.path),
                   ),
@@ -337,10 +347,13 @@ class _SideNav extends ConsumerWidget {
                 ],
               ),
             ),
-          _LogoutTile(onTap: () async {
-            await ref.read(authProvider.notifier).logout();
-            if (context.mounted) context.go('/login');
-          }),
+          _LogoutTile(
+            label: ref.t('mobile.action.signOut'),
+            onTap: () async {
+              await ref.read(authProvider.notifier).logout();
+              if (context.mounted) context.go('/login');
+            },
+          ),
         ],
       ),
     );
@@ -348,8 +361,14 @@ class _SideNav extends ConsumerWidget {
 }
 
 class _NavTile extends StatelessWidget {
-  const _NavTile({required this.item, required this.active, required this.onTap});
-  final _NavItem item;
+  const _NavTile({
+    required this.icon,
+    required this.label,
+    required this.active,
+    required this.onTap,
+  });
+  final IconData icon;
+  final String label;
   final bool active;
   final VoidCallback onTap;
 
@@ -367,13 +386,13 @@ class _NavTile extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
             child: Row(
               children: [
-                Icon(item.icon,
+                Icon(icon,
                     size: 20,
                     color: active ? AppColors.brand700 : AppColors.slate600),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    item.label,
+                    label,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 14,
@@ -422,7 +441,8 @@ class _LangChip extends StatelessWidget {
 }
 
 class _LogoutTile extends StatelessWidget {
-  const _LogoutTile({required this.onTap});
+  const _LogoutTile({required this.label, required this.onTap});
+  final String label;
   final VoidCallback onTap;
 
   @override
@@ -433,14 +453,14 @@ class _LogoutTile extends StatelessWidget {
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
         onTap: onTap,
-        child: const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
           child: Row(
             children: [
-              Icon(Icons.logout, size: 20, color: AppColors.danger),
-              SizedBox(width: 12),
-              Text('Saytdan chiqish',
-                  style: TextStyle(
+              const Icon(Icons.logout, size: 20, color: AppColors.danger),
+              const SizedBox(width: 12),
+              Text(label,
+                  style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
                       color: AppColors.danger)),
@@ -476,7 +496,7 @@ class _TopBar extends ConsumerWidget {
             child: Padding(
               padding: EdgeInsets.only(left: showMenu ? 0 : 8),
               child: Text(
-                _titleFor(currentPath),
+                _titleFor(ref, currentPath),
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                     fontSize: 18,
@@ -498,7 +518,8 @@ class _UserMenu extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(authProvider).user;
-    final name = user?.name.isNotEmpty == true ? user!.name : 'Foydalanuvchi';
+    final name =
+        user?.name.isNotEmpty == true ? user!.name : ref.t('mobile.user.fallback');
     final initial = name.trim().isNotEmpty ? name.trim()[0].toUpperCase() : '?';
     final avatar = user?.avatar;
 
@@ -539,13 +560,14 @@ class _UserMenu extends ConsumerWidget {
           ),
         ),
         const PopupMenuDivider(),
-        const PopupMenuItem(value: 'billing', child: Text('💳  Balans')),
-        const PopupMenuItem(value: 'settings', child: Text('Sozlamalar')),
-        const PopupMenuItem(value: 'profile', child: Text('Profil')),
+        PopupMenuItem(value: 'billing', child: Text(ref.t('mobile.menu.balance'))),
+        PopupMenuItem(value: 'settings', child: Text(ref.t('mobile.nav.settings'))),
+        PopupMenuItem(value: 'profile', child: Text(ref.t('mobile.nav.profile'))),
         const PopupMenuDivider(),
-        const PopupMenuItem(
+        PopupMenuItem(
           value: 'logout',
-          child: Text('Saytdan chiqish', style: TextStyle(color: AppColors.danger)),
+          child: Text(ref.t('mobile.action.signOut'),
+              style: const TextStyle(color: AppColors.danger)),
         ),
       ],
       child: Container(

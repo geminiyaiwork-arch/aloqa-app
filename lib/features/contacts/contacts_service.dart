@@ -122,7 +122,10 @@ class ContactsStore {
 
   /// (E13) Foydalanuvchi uchrashuvlaridан yig'ilган ishtirokchilar
   /// (backend /me/meeting-contacts) — saqlangan nom (override) bilan.
-  Future<List<AppContact>> meetingContacts() async {
+  ///
+  /// [guestFallback] — localized label for a participant with no stored name;
+  /// the caller (a widget) passes `ref.tt('mobile.contacts.guest')`.
+  Future<List<AppContact>> meetingContacts({String guestFallback = 'Mehmon'}) async {
     try {
       final res = await DioClient.instance.dio
           .get<Map<String, dynamic>>('/me/meeting-contacts');
@@ -132,7 +135,7 @@ class ContactsStore {
       final out = <AppContact>[];
       for (final c in items) {
         if (c is! Map) continue;
-        final name = (c['name'] ?? 'Mehmon').toString();
+        final name = (c['name'] ?? guestFallback).toString();
         final rawPhone = (c['phone'] ?? '').toString();
         final norm = rawPhone.isNotEmpty ? normalizePhone(rawPhone) : '';
         final ov = norm.isNotEmpty ? prefs.getString('$_prefix$norm') : null;

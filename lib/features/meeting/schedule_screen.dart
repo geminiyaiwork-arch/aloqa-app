@@ -458,7 +458,7 @@ class _SummaryCard extends StatelessWidget {
           const SizedBox(height: 10),
           _SummaryRow(
             icon: Icons.timelapse_rounded,
-            label: 'Davomiyligi',
+            label: ref.t('mobile.schedule.durationRow'),
             value: durationMinutes >= 15
                 ? ref.t('mobile.schedule.durationValue',
                     {'minutes': '$durationMinutes'})

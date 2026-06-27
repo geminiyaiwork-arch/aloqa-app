@@ -174,6 +174,7 @@ class JoinInfo {
     this.livekitUrl,
     this.isHost = false,
     this.canPublish = true,
+    this.hostIdentity,
   });
 
   final String roomName;
@@ -181,6 +182,7 @@ class JoinInfo {
   final String? livekitUrl;
   final bool isHost;
   final bool canPublish; // webinar attendee → false (faqat ko'rish)
+  final String? hostIdentity; // serverdan: haqiqiy host identity (boshqaruv xabarlari faqat shundan)
 
   factory JoinInfo.fromJson(Map<String, dynamic> j) => JoinInfo(
         roomName: (j['room'] ?? j['room_name'] ?? '').toString(),
@@ -188,6 +190,7 @@ class JoinInfo {
         livekitUrl: (j['livekit_url'] ?? j['url']) as String?,
         isHost: j['is_host'] == true,
         canPublish: j['can_publish'] == null ? true : j['can_publish'] == true,
+        hostIdentity: j['host_identity'] as String?,
       );
 }
 

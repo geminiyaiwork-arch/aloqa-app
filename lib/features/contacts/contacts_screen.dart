@@ -41,7 +41,8 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
   }
 
   Future<void> _loadParticipants() async {
-    final list = await ContactsStore.instance.meetingContacts();
+    final list = await ContactsStore.instance
+        .meetingContacts(guestFallback: ref.tt('mobile.contacts.guest'));
     if (!mounted) return;
     setState(() {
       _participants = list;

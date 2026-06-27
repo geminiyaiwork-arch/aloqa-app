@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:aloqa/core/i18n/i18n_service.dart';
 import 'package:aloqa/core/theme/app_theme.dart';
 import 'package:aloqa/core/widgets/app_shell.dart';
 import 'package:aloqa/core/widgets/aloqa_card.dart';
@@ -43,7 +44,7 @@ class _JoinMeetingScreenState extends ConsumerState<JoinMeetingScreen> {
   Future<void> _submit() async {
     final id = _parseMeetingId(_mid.text.trim());
     if (id.isEmpty) {
-      setState(() => _error = 'Bu maydon to\'ldirilishi shart');
+      setState(() => _error = ref.tt('common.required'));
       return;
     }
     setState(() {
@@ -60,7 +61,7 @@ class _JoinMeetingScreenState extends ConsumerState<JoinMeetingScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _error = 'Konferensiya topilmadi — ID ni tekshiring';
+        _error = ref.tt('join.notFound');
         _busy = false;
       });
     }
@@ -105,22 +106,22 @@ class _JoinMeetingScreenState extends ConsumerState<JoinMeetingScreen> {
                       ),
                     ),
                     const SizedBox(width: 14),
-                    const Expanded(
+                    Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Konferensiyaga qo\'shilish',
-                            style: TextStyle(
+                            ref.t('mobile.join.title'),
+                            style: const TextStyle(
                               fontSize: 22,
                               fontWeight: FontWeight.bold,
                               color: AppColors.slate900,
                             ),
                           ),
-                          SizedBox(height: 2),
+                          const SizedBox(height: 2),
                           Text(
-                            'ID yoki taklif havolasini kiriting',
-                            style: TextStyle(
+                            ref.t('mobile.join.subtitle'),
+                            style: const TextStyle(
                               fontSize: 14,
                               color: AppColors.slate400,
                             ),
@@ -149,8 +150,8 @@ class _JoinMeetingScreenState extends ConsumerState<JoinMeetingScreen> {
           children: [
             AloqaInput(
               controller: _mid,
-              label: 'Konferensiya ID',
-              hint: 'Konferensiya ID (masalan ABC123)',
+              label: ref.t('mobile.join.idLabel'),
+              hint: ref.t('join.idPlaceholder'),
               prefixIcon: Icons.tag,
               onChanged: (_) {
                 if (_error != null) setState(() => _error = null);
@@ -160,15 +161,15 @@ class _JoinMeetingScreenState extends ConsumerState<JoinMeetingScreen> {
             InlineErrorBanner(message: _error),
             if (_error != null) const SizedBox(height: 14),
             GradientButton(
-              label: 'Topish',
+              label: ref.t('join.find'),
               icon: Icons.search,
               busy: _busy,
               onPressed: _busy ? null : _submit,
             ),
             const SizedBox(height: 12),
-            const Text(
-              'Taklif havolasini ham to\'liq joylab qo\'ysangiz bo\'ladi — ID avtomatik aniqlanadi.',
-              style: TextStyle(
+            Text(
+              ref.t('mobile.join.linkHint'),
+              style: const TextStyle(
                 fontSize: 13,
                 color: AppColors.slate400,
                 height: 1.4,
@@ -183,7 +184,9 @@ class _JoinMeetingScreenState extends ConsumerState<JoinMeetingScreen> {
   Widget _buildFound(Meeting found) {
     final idText = found.code ?? found.id;
     final isLive = found.status == 'live';
-    final title = (found.title.isEmpty) ? 'Konferensiya #${found.id}' : found.title;
+    final title = (found.title.isEmpty)
+        ? ref.t('mobile.join.untitled', {'id': found.id})
+        : found.title;
 
     return RevealUp(
       delayMs: 80,
@@ -239,9 +242,9 @@ class _JoinMeetingScreenState extends ConsumerState<JoinMeetingScreen> {
                           ),
                           if (isLive) ...[
                             const SizedBox(width: 8),
-                            const Text(
-                              '● jonli',
-                              style: TextStyle(
+                            Text(
+                              '● ${ref.t('join.live')}',
+                              style: const TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,
                                 color: AppColors.brand600,
@@ -257,13 +260,13 @@ class _JoinMeetingScreenState extends ConsumerState<JoinMeetingScreen> {
             ),
             const SizedBox(height: 20),
             GradientButton(
-              label: 'Qo\'shilish',
+              label: ref.t('action.join'),
               icon: Icons.login,
               onPressed: () => context.go('/lobby/$idText'),
             ),
             const SizedBox(height: 12),
             GhostButton(
-              label: 'Orqaga',
+              label: ref.t('action.back'),
               leading: const Icon(
                 Icons.arrow_back,
                 size: 18,

@@ -5,6 +5,7 @@
 /// conference screen with the LiveKit token.
 library;
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
@@ -95,11 +96,17 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
           startMic: _micOn,
         ),
       ));
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(ref.t('common.error'))),
-      );
+      // Aniq sabab ko'rsatamiz ("Uchrashuv tugagan"/"parol noto'g'ri"/"to'la") — umumiy "Xatolik" emas.
+      var msg = ref.t('common.error');
+      if (e is DioException) {
+        final data = e.response?.data;
+        if (data is Map && data['message'] is String && (data['message'] as String).trim().isNotEmpty) {
+          msg = data['message'] as String;
+        }
+      }
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
     } finally {
       if (mounted) setState(() => _joining = false);
     }

@@ -146,10 +146,10 @@ class AuthController extends StateNotifier<AuthState> {
     } on DioException catch (e) {
       state = state.copyWith(
         busy: false,
-        error: _messageFrom(e) ?? 'Kirishda xatolik',
+        error: _messageFrom(e) ?? 'mobile.auth.error.login',
       );
     } catch (_) {
-      state = state.copyWith(busy: false, error: 'Kirishda xatolik');
+      state = state.copyWith(busy: false, error: 'mobile.auth.error.login');
     }
   }
 
@@ -175,9 +175,9 @@ class AuthController extends StateNotifier<AuthState> {
       await _persistSession(res.data);
     } on DioException catch (e) {
       state = state.copyWith(
-          busy: false, error: _messageFrom(e) ?? 'Google kirishda xatolik');
+          busy: false, error: _messageFrom(e) ?? 'mobile.auth.error.google');
     } catch (_) {
-      state = state.copyWith(busy: false, error: 'Google kirishda xatolik');
+      state = state.copyWith(busy: false, error: 'mobile.auth.error.google');
     }
   }
 
@@ -191,9 +191,9 @@ class AuthController extends StateNotifier<AuthState> {
       await _persistSession(res.data);
     } on DioException catch (e) {
       state = state.copyWith(
-          busy: false, error: _messageFrom(e) ?? 'Ro\'yxatdan o\'tishda xatolik');
+          busy: false, error: _messageFrom(e) ?? 'mobile.auth.error.register');
     } catch (_) {
-      state = state.copyWith(busy: false, error: 'Ro\'yxatdan o\'tishda xatolik');
+      state = state.copyWith(busy: false, error: 'mobile.auth.error.register');
     }
   }
 
@@ -219,7 +219,7 @@ class AuthController extends StateNotifier<AuthState> {
     final access = data?['access_token'] as String?;
     final refresh = data?['refresh_token'] as String?;
     if (access == null || refresh == null) {
-      state = state.copyWith(busy: false, error: 'Serverdan token kelmadi');
+      state = state.copyWith(busy: false, error: 'mobile.auth.error.noToken');
       return;
     }
     await _store.saveTokens(access: access, refresh: refresh);

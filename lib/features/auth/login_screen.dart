@@ -139,7 +139,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      InlineErrorBanner(message: auth.error),
+                      InlineErrorBanner(
+                          message:
+                              auth.error == null ? null : ref.t(auth.error!)),
                       const SizedBox(height: 12),
                       GradientButton(label: ref.t('action.login'), busy: auth.busy, onPressed: _submit),
                       const SizedBox(height: 20),

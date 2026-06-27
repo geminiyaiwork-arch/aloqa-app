@@ -2,16 +2,18 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:aloqa/core/i18n/i18n_service.dart';
 import 'package:aloqa/core/theme/app_theme.dart';
 import 'package:aloqa/core/widgets/app_shell.dart';
 import 'package:aloqa/core/widgets/aloqa_card.dart';
 
-class MessagesScreen extends StatelessWidget {
+class MessagesScreen extends ConsumerWidget {
   const MessagesScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return AloqaAppShell(
       currentPath: '/messages',
       child: SingleChildScrollView(
@@ -34,18 +36,18 @@ class MessagesScreen extends StatelessWidget {
                         size: 32, color: AppColors.brand600),
                   ),
                   const SizedBox(height: 16),
-                  const Text(
-                    'Xabarlar',
-                    style: TextStyle(
+                  Text(
+                    ref.t('mobile.messages.title'),
+                    style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w700,
                         color: AppColors.slate900),
                   ),
                   const SizedBox(height: 6),
-                  const Text(
-                    'Shaxsiy va guruh xabarlari tez kunda qo\'shiladi.',
+                  Text(
+                    ref.t('mobile.messages.comingSoon'),
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 14, color: AppColors.slate500),
+                    style: const TextStyle(fontSize: 14, color: AppColors.slate500),
                   ),
                 ],
               ),

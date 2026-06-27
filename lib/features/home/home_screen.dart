@@ -24,9 +24,11 @@ import 'package:aloqa/features/recordings/recordings_repository.dart';
 const _green = AppColors.brand600; // primary emerald
 const _greenSoft = AppColors.brand50;
 
-const _months = [
-  'Yan', 'Fev', 'Mar', 'Apr', 'May', 'Iyun',
-  'Iyul', 'Avg', 'Sen', 'Okt', 'Noy', 'Dek',
+// Month abbreviations resolved via i18n (`month.jan`..`month.dec`), indexed by
+// DateTime.month (1–12). Localized at render time, never hardcoded.
+const _monthKeys = [
+  'month.jan', 'month.feb', 'month.mar', 'month.apr', 'month.may', 'month.jun',
+  'month.jul', 'month.aug', 'month.sep', 'month.oct', 'month.nov', 'month.dec',
 ];
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -495,7 +497,7 @@ class _MeetingCard extends ConsumerWidget {
             : diff == -1
                 ? ref.t('mobile.rel.yesterday')
                 : '';
-    return (day: '${base.day}', mon: _months[base.month - 1], rel: rel);
+    return (day: '${base.day}', mon: ref.t(_monthKeys[base.month - 1]), rel: rel);
   }
 
   String? _countdown(WidgetRef ref) {

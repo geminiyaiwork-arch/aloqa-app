@@ -403,7 +403,16 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
   void _onData(DataReceivedEvent event) {
     try {
       final m = jsonDecode(utf8.decode(event.data)) as Map<String, dynamic>;
-      switch (m['kind']) {
+      final kind = m['kind'];
+      // Boshqaruv xabarlari (mute/end/reactlock) FAQAT haqiqiy hostdan qabul qilinadi.
+      // LiveKit `participant.identity` = server imzolagan identity (spoof qilib bo'lmaydi) →
+      // oddiy ishtirokchi hammani majburan o'chira / chiqara / reaksiyani qulflay olmaydi.
+      const privileged = {'mute', 'end', 'reactlock'};
+      if (privileged.contains(kind) &&
+          event.participant?.identity != widget.joinInfo.hostIdentity) {
+        return;
+      }
+      switch (kind) {
         case 'chat':
           setState(() {
             _messages.add(_ChatMsg(

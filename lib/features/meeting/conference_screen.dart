@@ -16,6 +16,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -26,6 +27,7 @@ import 'package:livekit_client/livekit_client.dart';
 import '../../core/config/app_config.dart';
 import '../../core/i18n/i18n_service.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/gradient_button.dart';
 import '../contacts/contacts_service.dart';
 import 'meeting_models.dart';
 
@@ -894,6 +896,289 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
       ..clearSnackBars()
       ..showSnackBar(SnackBar(content: Text(msg), duration: const Duration(seconds: 2)));
   }
+
+  /// Host-only: count attendance (roster employees vs joiners) and show the
+  /// report. Web parity of Conference `runAttendance` (/app conference).
+  Future<void> _runAttendance() async {
+    // Lightweight loading overlay while the report is generated server-side.
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => Dialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 18),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  valueColor:
+                      AlwaysStoppedAnimation<Color>(AppColors.brand600),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Text(ref.tt('conf.att.counting'),
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.slate700)),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    AttendanceReport? rep;
+    try {
+      rep = await MeetingRepository.instance.attendance(widget.meetingId);
+    } catch (_) {
+      rep = null;
+    }
+    if (!mounted) return;
+    if (Navigator.of(context).canPop()) Navigator.of(context).pop(); // close loader
+    if (rep == null) {
+      _toast(ref.tt('conf.toast.attendanceFailed'));
+      return;
+    }
+    _showAttendanceReport(rep);
+  }
+
+  void _showAttendanceReport(AttendanceReport rep) {
+    showDialog<void>(
+      context: context,
+      builder: (dialogCtx) {
+        final pct = rep.percent.clamp(0, 100).toDouble();
+        return Dialog(
+          backgroundColor: Colors.white,
+          insetPadding:
+              const EdgeInsets.symmetric(horizontal: 20, vertical: 36),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 480),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(ref.tt('conf.att.title'),
+                            style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.slate900)),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.of(dialogCtx).pop(),
+                        icon: const Icon(Icons.close, color: AppColors.slate400),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  // Summary: percent ring + present/absent/total.
+                  Container(
+                    padding: const EdgeInsets.all(18),
+                    decoration: BoxDecoration(
+                      color: AppColors.slate100,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          width: 84,
+                          height: 84,
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              SizedBox(
+                                width: 84,
+                                height: 84,
+                                child: CircularProgressIndicator(
+                                  value: pct / 100,
+                                  strokeWidth: 7,
+                                  backgroundColor: AppColors.slate200,
+                                  valueColor: const AlwaysStoppedAnimation<Color>(
+                                      AppColors.brand600),
+                                ),
+                              ),
+                              Text('${pct.round()}%',
+                                  style: const TextStyle(
+                                      fontSize: 19,
+                                      fontWeight: FontWeight.w800,
+                                      color: AppColors.slate900)),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 18),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                  '${ref.tt('conf.att.present')}: ${rep.present}',
+                                  style: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.brand700)),
+                              const SizedBox(height: 2),
+                              Text(
+                                  '${ref.tt('conf.att.absent')}: ${rep.absent}',
+                                  style: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.danger)),
+                              const SizedBox(height: 2),
+                              Text(
+                                  '${ref.tt('conf.att.total')}: ${rep.total} ${ref.tt('conf.att.staffUnit')}',
+                                  style: const TextStyle(
+                                      fontSize: 14, color: AppColors.slate500)),
+                              if (rep.generatedByName != null &&
+                                  rep.generatedByName!.isNotEmpty) ...[
+                                const SizedBox(height: 4),
+                                Text(
+                                    '${ref.tt('conf.att.countedBy')}: ${rep.generatedByName}',
+                                    style: const TextStyle(
+                                        fontSize: 12,
+                                        color: AppColors.slate400)),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  if (rep.total == 0)
+                    Text(ref.tt('conf.att.empty'),
+                        style: const TextStyle(
+                            fontSize: 14, color: AppColors.slate400))
+                  else
+                    Column(
+                      children: [
+                        for (final it in rep.items) _attRow(it),
+                      ],
+                    ),
+                  const SizedBox(height: 14),
+                  Text(ref.tt('conf.att.saved'),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                          fontSize: 12, color: AppColors.slate400)),
+                  const SizedBox(height: 12),
+                  GradientButton(
+                    label: ref.tt('conf.att.close'),
+                    onPressed: () => Navigator.of(dialogCtx).pop(),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _attRow(AttendanceItem it) {
+    final initial =
+        it.name.trim().isEmpty ? '?' : it.name.trim().characters.first.toUpperCase();
+    final hasPhoto = it.photo != null && it.photo!.trim().isNotEmpty;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppColors.slate100,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          if (hasPhoto)
+            ClipOval(
+              child: CachedNetworkImage(
+                imageUrl: it.photo!,
+                width: 36,
+                height: 36,
+                fit: BoxFit.cover,
+                errorWidget: (_, __, ___) => _attInitial(initial),
+              ),
+            )
+          else
+            _attInitial(initial),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(it.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.slate900)),
+                Text(
+                    (it.position == null || it.position!.trim().isEmpty)
+                        ? '—'
+                        : it.position!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: 12, color: AppColors.slate400)),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          if (it.present)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: AppColors.brand50,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                  '✓ ${ref.t('conf.att.minutes', {'n': '${it.minutes}'})}',
+                  style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.brand700)),
+            )
+          else
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: AppColors.danger.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(ref.t('conf.att.absentShort'),
+                  style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.danger)),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _attInitial(String initial) => Container(
+        width: 36,
+        height: 36,
+        alignment: Alignment.center,
+        decoration: const BoxDecoration(
+          color: AppColors.brand600,
+          shape: BoxShape.circle,
+        ),
+        child: Text(initial,
+            style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 14)),
+      );
 
   int get _participantCount => _room == null ? 0 : _room!.remoteParticipants.length + 1;
 
@@ -1935,6 +2220,12 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
                   },
                   active: _reactLocked,
                 ),
+              if (_isHost)
+                _sheetTile(Icons.fact_check_outlined,
+                    ref.tt('conf.attendance'), () {
+                  Navigator.pop(ctx);
+                  _runAttendance();
+                }),
             ],
           ),
         ),

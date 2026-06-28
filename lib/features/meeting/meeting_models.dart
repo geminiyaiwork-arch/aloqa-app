@@ -194,6 +194,70 @@ class JoinInfo {
       );
 }
 
+/// One row in an attendance report — an employee matched (or not) to a joined
+/// participant. `verified` is false when only a guest-name matched (#10).
+@immutable
+class AttendanceItem {
+  const AttendanceItem({
+    required this.name,
+    this.position,
+    this.photo,
+    this.present = false,
+    this.minutes = 0,
+    this.verified = false,
+  });
+
+  final String name;
+  final String? position;
+  final String? photo;
+  final bool present;
+  final int minutes;
+  final bool verified;
+
+  factory AttendanceItem.fromJson(Map<String, dynamic> j) => AttendanceItem(
+        name: (j['name'] ?? '').toString(),
+        position: j['position']?.toString(),
+        photo: j['photo']?.toString(),
+        present: j['present'] == true,
+        minutes: j['minutes'] is num ? (j['minutes'] as num).toInt() : 0,
+        verified: j['verified'] == true,
+      );
+}
+
+/// Conference attendance report (host counts roster employees against joiners).
+@immutable
+class AttendanceReport {
+  const AttendanceReport({
+    this.total = 0,
+    this.present = 0,
+    this.absent = 0,
+    this.percent = 0,
+    this.items = const [],
+    this.generatedByName,
+  });
+
+  final int total;
+  final int present;
+  final int absent;
+  final double percent;
+  final List<AttendanceItem> items;
+  final String? generatedByName;
+
+  factory AttendanceReport.fromJson(Map<String, dynamic> j) => AttendanceReport(
+        total: j['total'] is num ? (j['total'] as num).toInt() : 0,
+        present: j['present'] is num ? (j['present'] as num).toInt() : 0,
+        absent: j['absent'] is num ? (j['absent'] as num).toInt() : 0,
+        percent: j['percent'] is num ? (j['percent'] as num).toDouble() : 0,
+        items: j['items'] is List
+            ? (j['items'] as List)
+                .whereType<Map<String, dynamic>>()
+                .map(AttendanceItem.fromJson)
+                .toList()
+            : const [],
+        generatedByName: j['generated_by_name']?.toString(),
+      );
+}
+
 class MeetingRepository {
   MeetingRepository(this._dio);
   final Dio _dio;
@@ -320,6 +384,16 @@ class MeetingRepository {
       {required int participantId, required String decision}) async {
     await _dio.post<dynamic>('/meetings/$id/admit',
         data: {'participant_id': participantId, 'decision': decision});
+  }
+
+  /// Host-only: count attendance for this meeting (matches roster employees
+  /// against joiners) and persist a report. Returns the generated report.
+  Future<AttendanceReport> attendance(String id) async {
+    final res =
+        await _dio.post<Map<String, dynamic>>('/meetings/$id/attendance');
+    final rep = res.data?['report'];
+    return AttendanceReport.fromJson(
+        rep is Map<String, dynamic> ? rep : <String, dynamic>{});
   }
 
   Future<void> kick(String id, {required int participantId}) async {

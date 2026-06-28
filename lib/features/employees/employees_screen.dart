@@ -1,13 +1,18 @@
 /// ALOQA — Employees (Hodimlar reestri).
 ///
 /// Web parity of /app/employees. Lists attendance-roster employees, gates on
-/// the attendance entitlement, supports add (name + position; photo upload is
-/// deferred — image_picker is absent) and optimistic delete.
+/// the attendance entitlement, supports add + EDIT (name / position / phone /
+/// photo) and optimistic delete. Phone binds the employee to a login account
+/// so conference attendance matching is stable (#10); a "linked" badge shows it.
 library;
+
+import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 
 import 'package:aloqa/core/i18n/i18n_service.dart';
 import 'package:aloqa/core/theme/app_theme.dart';
@@ -48,7 +53,8 @@ class _EmployeesScreenState extends ConsumerState<EmployeesScreen> {
           return _Main(
             res: res,
             removing: _removing,
-            onAdd: () => _openAddModal(res),
+            onAdd: () => _openEmployeeModal(),
+            onEdit: (emp) => _openEmployeeModal(editing: emp),
             onDelete: (emp) => _confirmDelete(emp),
           );
         },
@@ -56,11 +62,14 @@ class _EmployeesScreenState extends ConsumerState<EmployeesScreen> {
     );
   }
 
-  // ---- Add employee modal -------------------------------------------------
+  // ---- Add / edit employee modal ------------------------------------------
 
-  Future<void> _openAddModal(EmployeesResult res) async {
-    final nameCtrl = TextEditingController();
-    final positionCtrl = TextEditingController();
+  Future<void> _openEmployeeModal({Employee? editing}) async {
+    final isEdit = editing != null;
+    final nameCtrl = TextEditingController(text: editing?.name ?? '');
+    final positionCtrl = TextEditingController(text: editing?.position ?? '');
+    final phoneCtrl = TextEditingController(text: editing?.phone ?? '');
+    Uint8List? pickedBytes; // new photo chosen this session (overrides existing)
     var busy = false;
 
     await showDialog<void>(
@@ -69,13 +78,47 @@ class _EmployeesScreenState extends ConsumerState<EmployeesScreen> {
       builder: (dialogCtx) {
         return StatefulBuilder(
           builder: (dialogCtx, setModal) {
+            Future<void> pickPhoto() async {
+              try {
+                final picked = await ImagePicker().pickImage(
+                  source: ImageSource.gallery,
+                  maxWidth: 1024,
+                  imageQuality: 88,
+                );
+                if (picked == null) return;
+                final bytes = await File(picked.path).readAsBytes();
+                setModal(() => pickedBytes = bytes);
+              } catch (_) {
+                if (!dialogCtx.mounted) return;
+                ScaffoldMessenger.of(dialogCtx).showSnackBar(
+                  SnackBar(
+                      content: Text(ref.tt('mobile.profile.imageUploadFailed'))),
+                );
+              }
+            }
+
             Future<void> save() async {
               final name = nameCtrl.text.trim();
               if (name.isEmpty) return;
               setModal(() => busy = true);
               try {
-                await EmployeesRepository.instance
-                    .create(name: name, position: positionCtrl.text.trim());
+                final repo = EmployeesRepository.instance;
+                if (isEdit) {
+                  await repo.update(
+                    editing.id,
+                    name: name,
+                    position: positionCtrl.text.trim(),
+                    phone: phoneCtrl.text.trim(),
+                    photoBytes: pickedBytes,
+                  );
+                } else {
+                  await repo.create(
+                    name: name,
+                    position: positionCtrl.text.trim(),
+                    phone: phoneCtrl.text.trim(),
+                    photoBytes: pickedBytes,
+                  );
+                }
                 if (!dialogCtx.mounted) return;
                 Navigator.of(dialogCtx).pop();
                 ref.invalidate(employeesProvider);
@@ -88,8 +131,7 @@ class _EmployeesScreenState extends ConsumerState<EmployeesScreen> {
               }
             }
 
-            final canSave =
-                !busy && nameCtrl.text.trim().isNotEmpty;
+            final canSave = !busy && nameCtrl.text.trim().isNotEmpty;
 
             return Dialog(
               backgroundColor: Colors.white,
@@ -115,13 +157,19 @@ class _EmployeesScreenState extends ConsumerState<EmployeesScreen> {
                               color: AppColors.brand50,
                               borderRadius: BorderRadius.circular(12),
                             ),
-                            child: const Icon(Icons.person_add_alt_1,
-                                color: AppColors.brand600, size: 22),
+                            child: Icon(
+                                isEdit
+                                    ? Icons.edit_outlined
+                                    : Icons.person_add_alt_1,
+                                color: AppColors.brand600,
+                                size: 22),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Text(
-                              ref.tt('mobile.employees.addModalTitle'),
+                              isEdit
+                                  ? ref.tt('mobile.employees.editModalTitle')
+                                  : ref.tt('mobile.employees.addModalTitle'),
                               style: const TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
@@ -139,8 +187,14 @@ class _EmployeesScreenState extends ConsumerState<EmployeesScreen> {
                         ],
                       ),
                       const SizedBox(height: 20),
-                      // Photo placeholder + disabled picker (image_picker absent).
-                      const _PhotoPlaceholder(),
+                      _PhotoPicker(
+                        name: nameCtrl.text.trim().isEmpty
+                            ? (editing?.name ?? '')
+                            : nameCtrl.text.trim(),
+                        pickedBytes: pickedBytes,
+                        existingPhoto: editing?.photo,
+                        onPick: busy ? null : pickPhoto,
+                      ),
                       const SizedBox(height: 20),
                       AloqaInput(
                         controller: nameCtrl,
@@ -156,6 +210,30 @@ class _EmployeesScreenState extends ConsumerState<EmployeesScreen> {
                         label: ref.tt('mobile.employees.positionLabel'),
                         hint: ref.tt('mobile.employees.positionHint'),
                         prefixIcon: Icons.work_outline,
+                      ),
+                      const SizedBox(height: 14),
+                      AloqaInput(
+                        controller: phoneCtrl,
+                        label: ref.tt('mobile.employees.phoneLabel'),
+                        hint: ref.tt('mobile.employees.phoneHint'),
+                        prefixIcon: Icons.phone_outlined,
+                        keyboardType: TextInputType.phone,
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(Icons.info_outline,
+                              size: 15, color: AppColors.slate400),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              ref.tt('mobile.employees.phoneHelp'),
+                              style: const TextStyle(
+                                  fontSize: 12, color: AppColors.slate400),
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 24),
                       GradientButton(
@@ -255,12 +333,14 @@ class _Main extends ConsumerWidget {
     required this.res,
     required this.removing,
     required this.onAdd,
+    required this.onEdit,
     required this.onDelete,
   });
 
   final EmployeesResult res;
   final Set<int> removing;
   final VoidCallback onAdd;
+  final void Function(Employee) onEdit;
   final void Function(Employee) onDelete;
 
   @override
@@ -355,6 +435,7 @@ class _Main extends ConsumerWidget {
           _Grid(
             employees: visible,
             count: count,
+            onEdit: onEdit,
             onDelete: onDelete,
           ),
         const SizedBox(height: 12),
@@ -367,11 +448,13 @@ class _Grid extends StatelessWidget {
   const _Grid({
     required this.employees,
     required this.count,
+    required this.onEdit,
     required this.onDelete,
   });
 
   final List<Employee> employees;
   final int count;
+  final void Function(Employee) onEdit;
   final void Function(Employee) onDelete;
 
   @override
@@ -400,6 +483,7 @@ class _Grid extends StatelessWidget {
                   delayMs: 40 + (i % cols) * 30 + (i ~/ cols) * 20,
                   child: _EmployeeCard(
                     employee: employees[i],
+                    onEdit: () => onEdit(employees[i]),
                     onDelete: () => onDelete(employees[i]),
                   ),
                 ),
@@ -411,16 +495,22 @@ class _Grid extends StatelessWidget {
   }
 }
 
-class _EmployeeCard extends StatelessWidget {
-  const _EmployeeCard({required this.employee, required this.onDelete});
+class _EmployeeCard extends ConsumerWidget {
+  const _EmployeeCard({
+    required this.employee,
+    required this.onEdit,
+    required this.onDelete,
+  });
 
   final Employee employee;
+  final VoidCallback onEdit;
   final VoidCallback onDelete;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return AloqaCard(
       padding: const EdgeInsets.all(16),
+      onTap: onEdit, // bosish → tahrir (ism/lavozim/telefon/rasm)
       child: Row(
         children: [
           _Avatar(name: employee.name, photo: employee.photo, size: 56),
@@ -453,6 +543,25 @@ class _EmployeeCard extends StatelessWidget {
                     color: AppColors.slate400,
                   ),
                 ),
+                if (employee.linked) ...[
+                  const SizedBox(height: 6),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: AppColors.brand50,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      ref.t('mobile.employees.linkedBadge'),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.brand700,
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -591,36 +700,69 @@ class _AddButton extends ConsumerWidget {
 }
 
 // ===========================================================================
-// Photo placeholder for the add modal (upload deferred — image_picker absent)
+// Photo picker for the add/edit modal (image_picker → gallery → bytes)
 // ===========================================================================
 
-class _PhotoPlaceholder extends ConsumerWidget {
-  const _PhotoPlaceholder();
+class _PhotoPicker extends ConsumerWidget {
+  const _PhotoPicker({
+    required this.name,
+    required this.pickedBytes,
+    required this.existingPhoto,
+    required this.onPick,
+  });
+
+  final String name;
+  final Uint8List? pickedBytes;
+  final String? existingPhoto;
+  final VoidCallback? onPick;
+
+  String get _initial {
+    final t = name.trim();
+    if (t.isEmpty) return '?';
+    return t.characters.first.toUpperCase();
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    const size = 84.0;
+    final hasExisting =
+        existingPhoto != null && existingPhoto!.trim().isNotEmpty;
+
+    Widget avatar;
+    if (pickedBytes != null) {
+      avatar = ClipOval(
+        child: Image.memory(pickedBytes!,
+            width: size, height: size, fit: BoxFit.cover),
+      );
+    } else if (hasExisting) {
+      avatar = ClipOval(
+        child: CachedNetworkImage(
+          imageUrl: existingPhoto!,
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          errorWidget: (_, __, ___) => _initialCircle(size),
+        ),
+      );
+    } else {
+      avatar = _initialCircle(size);
+    }
+
+    final hasAny = pickedBytes != null || hasExisting;
+
     return Column(
       children: [
-        Container(
-          width: 84,
-          height: 84,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: AppColors.slate100,
-            shape: BoxShape.circle,
-            border: Border.all(color: AppColors.slate200),
-          ),
-          child: const Icon(Icons.photo_camera_outlined,
-              size: 30, color: AppColors.slate400),
-        ),
+        avatar,
         const SizedBox(height: 12),
         OutlinedButton.icon(
-          onPressed: null,
+          onPressed: onPick,
           icon: const Icon(Icons.image_outlined, size: 18),
-          label: Text(ref.t('mobile.profile.pickImage')),
+          label: Text(hasAny
+              ? ref.t('mobile.employees.photoChange')
+              : ref.t('mobile.profile.pickImage')),
           style: OutlinedButton.styleFrom(
-            disabledForegroundColor: AppColors.slate400,
-            side: const BorderSide(color: AppColors.slate200),
+            foregroundColor: AppColors.brand700,
+            side: const BorderSide(color: AppColors.brand200),
             minimumSize: const Size(0, 42),
             padding: const EdgeInsets.symmetric(horizontal: 16),
             shape: RoundedRectangleBorder(
@@ -628,18 +770,27 @@ class _PhotoPlaceholder extends ConsumerWidget {
             ),
           ),
         ),
-        const SizedBox(height: 6),
-        Text(
-          ref.t('mobile.employees.photoSoon'),
-          style: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-            color: AppColors.slate400,
-          ),
-        ),
       ],
     );
   }
+
+  Widget _initialCircle(double size) => Container(
+        width: size,
+        height: size,
+        alignment: Alignment.center,
+        decoration: const BoxDecoration(
+          color: AppColors.brand600,
+          shape: BoxShape.circle,
+        ),
+        child: Text(
+          _initial,
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: size * 0.4,
+          ),
+        ),
+      );
 }
 
 // ===========================================================================

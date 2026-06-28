@@ -481,6 +481,9 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
               }
               _toast(ref.tt('mobile.conf.muteByAdmin'));
             } else {
+              // Host ovozni YOQDI → mikrofon avtomatik yoqiladi va "yoniq" ko'rinadi
+              _micOn = true;
+              _room?.localParticipant?.setMicrophoneEnabled(true);
               _toast(ref.tt('mobile.conf.unmuteByAdmin'));
             }
             if (mounted) setState(() {});
@@ -807,11 +810,8 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
   }
 
   Future<void> _leave() async {
-    _navigatingOut = true;
-    try {
-      await _room?.disconnect();
-    } catch (_) {}
-    if (mounted) Navigator.of(context).maybePop();
+    // Chiqishda ham DASHBOARDga (maybePop oldingi ekranga — lobby/qo'ng'iroqqa qaytarardi)
+    await _goHome(ref.tt('mobile.conf.ended'));
   }
 
   /// Red "end call" button. The host is offered a choice (leave vs end for all);
@@ -1193,7 +1193,14 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    // Android orqaga tugmasi: konferensiyani TASHLAB ketadi (xona to'xtaydi) va DASHBOARDga
+    // qaytadi — lobby'ga qaytib (xona ishlab turib) yoki ilovadan chiqib ketmaydi.
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (didPop) {
+        if (!didPop && !_goneHome) _leave();
+      },
+      child: Scaffold(
       backgroundColor: AppColors.slate50,
       body: SafeArea(
         child: Column(
@@ -1214,6 +1221,7 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
           ],
         ),
       ),
+    ),
     );
   }
 

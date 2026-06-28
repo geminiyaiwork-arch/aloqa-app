@@ -9,6 +9,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/i18n/i18n_service.dart';
 import '../auth/auth_provider.dart';
@@ -128,8 +129,21 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(ref.t('lobby.title'))),
+    // Android orqaga: lobby go_router bilan ochilgan (stack almashtirilgan) → orqaga bosilsa
+    // ilovadan chiqib ketardi. Endi DASHBOARDga (asosiy) qaytaradi.
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (didPop) {
+        if (!didPop) context.go('/home');
+      },
+      child: Scaffold(
+      appBar: AppBar(
+        title: Text(ref.t('lobby.title')),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => context.go('/home'),
+        ),
+      ),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -205,6 +219,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
           ),
         ),
       ),
+    ),
     );
   }
 }

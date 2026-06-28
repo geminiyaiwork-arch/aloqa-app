@@ -1,3 +1,11 @@
+# ⚠️ TA'MINOT-ZANJIRI XAVFSIZLIGI (supply-chain):
+#   Quyidagi action'lar o'zgaruvchan teglarga bog'langan (actions/checkout@v4,
+#   subosito/flutter-action@v2, actions/upload-artifact@v4). Mustahkamlash uchun
+#   ularni TO'LIQ commit SHA'ga pin qilish tavsiya etiladi, masalan:
+#     uses: actions/checkout@<full-40-char-sha>  # v4
+#   (har bir action repozitoriysidan to'g'ri SHA'ni tekshirib oling — bu yerda
+#   taxmin qilinmadi). Hozircha LOW risk: sirlar ishlatilmaydi, pull_request_target
+#   yo'q, faqat push/workflow_dispatch trigger.
 name: build-all-platforms
 
 on:

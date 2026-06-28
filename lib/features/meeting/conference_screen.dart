@@ -408,8 +408,13 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
       // LiveKit `participant.identity` = server imzolagan identity (spoof qilib bo'lmaydi) →
       // oddiy ishtirokchi hammani majburan o'chira / chiqara / reaksiyani qulflay olmaydi.
       const privileged = {'mute', 'end', 'reactlock'};
+      // Fail-closed: a privileged message is accepted ONLY when both the host
+      // identity and the sender identity are known and equal. If either is null
+      // (e.g. host identity unset), drop it rather than accepting it.
+      final hostId = widget.joinInfo.hostIdentity;
+      final sender = event.participant?.identity;
       if (privileged.contains(kind) &&
-          event.participant?.identity != widget.joinInfo.hostIdentity) {
+          (hostId == null || sender == null || sender != hostId)) {
         return;
       }
       switch (kind) {

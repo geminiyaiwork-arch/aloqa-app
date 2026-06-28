@@ -33,7 +33,10 @@ class DioClient {
   /// Set by the auth layer; invoked when refresh fails (forces logout).
   UnauthorizedCallback? onUnauthorized;
 
-  bool _refreshing = false;
+  /// In-flight refresh shared by concurrent 401s. Concurrent callers await the
+  /// same future so a single refresh serves every queued request, and logout is
+  /// only triggered when this shared refresh genuinely fails.
+  Future<bool>? _refreshFuture;
 
   InterceptorsWrapper _authInterceptor() => InterceptorsWrapper(
         onRequest: (options, handler) async {
@@ -73,9 +76,17 @@ class DioClient {
         },
       );
 
-  Future<bool> _tryRefresh() async {
-    if (_refreshing) return false;
-    _refreshing = true;
+  /// Refreshes the access token. Concurrent 401s share a single in-flight
+  /// refresh: the first caller starts it, the rest await the same future and
+  /// reuse its result. This prevents a second concurrent request from logging
+  /// out while the first is successfully refreshing.
+  Future<bool> _tryRefresh() {
+    return _refreshFuture ??= _doRefresh().whenComplete(() {
+      _refreshFuture = null;
+    });
+  }
+
+  Future<bool> _doRefresh() async {
     try {
       final refresh = await _store.refreshToken;
       if (refresh == null || refresh.isEmpty) return false;
@@ -93,8 +104,6 @@ class DioClient {
       return true;
     } catch (_) {
       return false;
-    } finally {
-      _refreshing = false;
     }
   }
 

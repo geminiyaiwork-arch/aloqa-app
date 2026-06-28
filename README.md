@@ -38,7 +38,8 @@ cd admin && npm install && npm run dev    # :5174
 # Flutter (mobil/desktop)
 flutter pub get && flutter run
 ```
-Admin demo: **admin@aloqa.uz / Aloqa2026!** (deploy'da darhol o'zgartiring).
+Admin demo: foydalanuvchi `admin@aloqa.uz`. Boshlang'ich parol seed paytida `ADMIN_PASSWORD`
+env orqali beriladi — birinchi kirishdayoq DARHOL o'zgartiring (parolni hujjatga yozmang).
 
 ## Deploy (server)
 Domen ma'lumotlari kelgach: [`devops/README.md`](devops/README.md) — `docker compose up -d --build`.

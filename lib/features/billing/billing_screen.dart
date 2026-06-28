@@ -20,6 +20,23 @@ import 'package:aloqa/features/billing/billing_repository.dart';
 String _planPrice(Plan p, WidgetRef ref) =>
     p.price > 0 ? som(p.price) : ref.tt('billing.price.free');
 
+/// Detailed plan capabilities — web (/app/billing) parity: derive
+/// participants / duration / cloud-storage lines, then append features_json.
+List<String> _planFeatures(Plan p, WidgetRef ref) => [
+      p.maxParticipants == 0
+          ? ref.t('billing.feature.participantsUnlimited')
+          : ref.t('billing.feature.participantsUpTo',
+              {'n': '${p.maxParticipants}'}),
+      p.maxDuration == 0
+          ? ref.t('billing.feature.durationUnlimited')
+          : ref.t('billing.feature.durationLimit', {'n': '${p.maxDuration}'}),
+      p.cloudStorageGb == 0
+          ? ref.t('billing.feature.localRecording')
+          : ref.t('billing.feature.cloudRecording',
+              {'n': '${p.cloudStorageGb}'}),
+      ...p.features,
+    ];
+
 class BillingScreen extends ConsumerStatefulWidget {
   const BillingScreen({super.key});
 
@@ -649,42 +666,36 @@ class _PlanCard extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 16),
-          if (plan.features.isEmpty)
-            Text(
-              ref.t('mobile.billing.basicFeatures'),
-              style: const TextStyle(color: AppColors.slate400, fontSize: 13),
-            )
-          else
-            ...plan.features.map(
-              (f) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Padding(
-                      padding: EdgeInsets.only(top: 1),
-                      child: Icon(
-                        Icons.check_circle_rounded,
-                        size: 18,
-                        color: AppColors.brand600,
+          ..._planFeatures(plan, ref).map(
+            (f) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.only(top: 1),
+                    child: Icon(
+                      Icons.check_circle_rounded,
+                      size: 18,
+                      color: AppColors.brand600,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      f,
+                      style: const TextStyle(
+                        color: AppColors.slate700,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        height: 1.35,
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        f,
-                        style: const TextStyle(
-                          color: AppColors.slate700,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          height: 1.35,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
+          ),
           const SizedBox(height: 18),
           // Tugma: joriy reja bo'lsa o'chirilgan; aks holda Tanlash/Boshlash.
           if (isCurrent)

@@ -956,153 +956,197 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
   }
 
   void _showAttendanceReport(AttendanceReport rep) {
+    final items = rep.items.toList(); // mahalliy o'zgaruvchan nusxa (qo'lda bor/yo'q)
+    var saving = false;
     showDialog<void>(
       context: context,
       builder: (dialogCtx) {
-        final pct = rep.percent.clamp(0, 100).toDouble();
-        return Dialog(
-          backgroundColor: Colors.white,
-          insetPadding:
-              const EdgeInsets.symmetric(horizontal: 20, vertical: 36),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 480),
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(ref.tt('conf.att.title'),
-                            style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.slate900)),
-                      ),
-                      IconButton(
-                        onPressed: () => Navigator.of(dialogCtx).pop(),
-                        icon: const Icon(Icons.close, color: AppColors.slate400),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  // Summary: percent ring + present/absent/total.
-                  Container(
-                    padding: const EdgeInsets.all(18),
-                    decoration: BoxDecoration(
-                      color: AppColors.slate100,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Row(
+        return StatefulBuilder(builder: (ctx, setLocal) {
+          final present = items.where((i) => i.present).length;
+          final total = items.length;
+          final absent = total - present;
+          final pct = (total > 0 ? present / total * 100 : 0).toDouble();
+          return Dialog(
+            backgroundColor: Colors.white,
+            insetPadding:
+                const EdgeInsets.symmetric(horizontal: 20, vertical: 36),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 480),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
                       children: [
-                        SizedBox(
-                          width: 84,
-                          height: 84,
-                          child: Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              SizedBox(
-                                width: 84,
-                                height: 84,
-                                child: CircularProgressIndicator(
-                                  value: pct / 100,
-                                  strokeWidth: 7,
-                                  backgroundColor: AppColors.slate200,
-                                  valueColor: const AlwaysStoppedAnimation<Color>(
-                                      AppColors.brand600),
-                                ),
-                              ),
-                              Text('${pct.round()}%',
-                                  style: const TextStyle(
-                                      fontSize: 19,
-                                      fontWeight: FontWeight.w800,
-                                      color: AppColors.slate900)),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 18),
                         Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                  '${ref.tt('conf.att.present')}: ${rep.present}',
-                                  style: const TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppColors.brand700)),
-                              const SizedBox(height: 2),
-                              Text(
-                                  '${ref.tt('conf.att.absent')}: ${rep.absent}',
-                                  style: const TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppColors.danger)),
-                              const SizedBox(height: 2),
-                              Text(
-                                  '${ref.tt('conf.att.total')}: ${rep.total} ${ref.tt('conf.att.staffUnit')}',
-                                  style: const TextStyle(
-                                      fontSize: 14, color: AppColors.slate500)),
-                              if (rep.generatedByName != null &&
-                                  rep.generatedByName!.isNotEmpty) ...[
-                                const SizedBox(height: 4),
-                                Text(
-                                    '${ref.tt('conf.att.countedBy')}: ${rep.generatedByName}',
-                                    style: const TextStyle(
-                                        fontSize: 12,
-                                        color: AppColors.slate400)),
-                              ],
-                            ],
-                          ),
+                          child: Text(ref.tt('conf.att.title'),
+                              style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.slate900)),
+                        ),
+                        IconButton(
+                          onPressed: () => Navigator.of(dialogCtx).pop(),
+                          icon:
+                              const Icon(Icons.close, color: AppColors.slate400),
                         ),
                       ],
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  if (rep.total == 0)
-                    Text(ref.tt('conf.att.empty'),
-                        style: const TextStyle(
-                            fontSize: 14, color: AppColors.slate400))
-                  else
-                    Column(
-                      children: [
-                        for (final it in rep.items) _attRow(it),
-                      ],
+                    const SizedBox(height: 6),
+                    Container(
+                      padding: const EdgeInsets.all(18),
+                      decoration: BoxDecoration(
+                        color: AppColors.slate100,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Row(
+                        children: [
+                          SizedBox(
+                            width: 84,
+                            height: 84,
+                            child: Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                SizedBox(
+                                  width: 84,
+                                  height: 84,
+                                  child: CircularProgressIndicator(
+                                    value: pct / 100,
+                                    strokeWidth: 7,
+                                    backgroundColor: AppColors.slate200,
+                                    valueColor:
+                                        const AlwaysStoppedAnimation<Color>(
+                                            AppColors.brand600),
+                                  ),
+                                ),
+                                Text('${pct.round()}%',
+                                    style: const TextStyle(
+                                        fontSize: 19,
+                                        fontWeight: FontWeight.w800,
+                                        color: AppColors.slate900)),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 18),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('${ref.tt('conf.att.present')}: $present',
+                                    style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.brand700)),
+                                const SizedBox(height: 2),
+                                Text('${ref.tt('conf.att.absent')}: $absent',
+                                    style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.danger)),
+                                const SizedBox(height: 2),
+                                Text(
+                                    '${ref.tt('conf.att.total')}: $total ${ref.tt('conf.att.staffUnit')}',
+                                    style: const TextStyle(
+                                        fontSize: 14,
+                                        color: AppColors.slate500)),
+                                if (rep.generatedByName != null &&
+                                    rep.generatedByName!.isNotEmpty) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                      '${ref.tt('conf.att.countedBy')}: ${rep.generatedByName}',
+                                      style: const TextStyle(
+                                          fontSize: 12,
+                                          color: AppColors.slate400)),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  const SizedBox(height: 14),
-                  Text(ref.tt('conf.att.saved'),
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                          fontSize: 12, color: AppColors.slate400)),
-                  const SizedBox(height: 12),
-                  GradientButton(
-                    label: ref.tt('conf.att.close'),
-                    onPressed: () => Navigator.of(dialogCtx).pop(),
-                  ),
-                ],
+                    const SizedBox(height: 16),
+                    if (total == 0)
+                      Text(ref.tt('conf.att.empty'),
+                          style: const TextStyle(
+                              fontSize: 14, color: AppColors.slate400))
+                    else ...[
+                      const Padding(
+                        padding: EdgeInsets.only(bottom: 8, left: 2),
+                        child: Text(
+                            'Har bir hodimni bosib "bor/yo\'q" qiling, so\'ng Saqlang.',
+                            style: TextStyle(
+                                fontSize: 12, color: AppColors.slate500)),
+                      ),
+                      for (var idx = 0; idx < items.length; idx++)
+                        _attRow(items[idx], onTap: () {
+                          setLocal(() => items[idx] = items[idx]
+                              .copyWith(present: !items[idx].present));
+                        }),
+                    ],
+                    const SizedBox(height: 14),
+                    if (total > 0)
+                      GradientButton(
+                        label: 'Saqlash',
+                        icon: Icons.check,
+                        busy: saving,
+                        onPressed: () async {
+                          setLocal(() => saving = true);
+                          try {
+                            final ids = items
+                                .where((i) => i.present && i.id != null)
+                                .map((i) => i.id!)
+                                .toList();
+                            await MeetingRepository.instance.updateAttendance(
+                                widget.meetingId, rep.id, ids);
+                            if (dialogCtx.mounted) {
+                              Navigator.of(dialogCtx).pop();
+                            }
+                            _toast('Davomat saqlandi');
+                          } catch (_) {
+                            setLocal(() => saving = false);
+                            _toast(ref.tt('conf.toast.attendanceFailed'));
+                          }
+                        },
+                      ),
+                    const SizedBox(height: 8),
+                    TextButton(
+                      onPressed: () => Navigator.of(dialogCtx).pop(),
+                      child: Text(ref.tt('conf.att.close')),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-        );
+          );
+        });
       },
     );
   }
 
-  Widget _attRow(AttendanceItem it) {
+  Widget _attRow(AttendanceItem it, {VoidCallback? onTap}) {
     final initial =
         it.name.trim().isEmpty ? '?' : it.name.trim().characters.first.toUpperCase();
     final hasPhoto = it.photo != null && it.photo!.trim().isNotEmpty;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: AppColors.slate100,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: it.present ? AppColors.brand50 : AppColors.slate100,
+              borderRadius: BorderRadius.circular(12),
+              border:
+                  it.present ? Border.all(color: AppColors.brand200) : null,
+            ),
+            child: Row(
         children: [
           if (hasPhoto)
             ClipOval(
@@ -1170,7 +1214,10 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
             ),
         ],
       ),
-    );
+            ),
+          ),
+        ),
+      );
   }
 
   Widget _attInitial(String initial) => Container(

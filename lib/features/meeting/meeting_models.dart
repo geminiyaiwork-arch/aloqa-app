@@ -199,6 +199,7 @@ class JoinInfo {
 @immutable
 class AttendanceItem {
   const AttendanceItem({
+    this.id,
     required this.name,
     this.position,
     this.photo,
@@ -207,6 +208,7 @@ class AttendanceItem {
     this.verified = false,
   });
 
+  final int? id; // employee id (host qo'lda bor/yo'q qilish uchun)
   final String name;
   final String? position;
   final String? photo;
@@ -214,7 +216,18 @@ class AttendanceItem {
   final int minutes;
   final bool verified;
 
+  AttendanceItem copyWith({bool? present}) => AttendanceItem(
+        id: id,
+        name: name,
+        position: position,
+        photo: photo,
+        present: present ?? this.present,
+        minutes: minutes,
+        verified: verified,
+      );
+
   factory AttendanceItem.fromJson(Map<String, dynamic> j) => AttendanceItem(
+        id: j['id'] is num ? (j['id'] as num).toInt() : null,
         name: (j['name'] ?? '').toString(),
         position: j['position']?.toString(),
         photo: j['photo']?.toString(),
@@ -228,6 +241,7 @@ class AttendanceItem {
 @immutable
 class AttendanceReport {
   const AttendanceReport({
+    this.id = 0,
     this.total = 0,
     this.present = 0,
     this.absent = 0,
@@ -236,6 +250,7 @@ class AttendanceReport {
     this.generatedByName,
   });
 
+  final int id; // hisobot id (qo'lda tahrirlash uchun)
   final int total;
   final int present;
   final int absent;
@@ -244,6 +259,7 @@ class AttendanceReport {
   final String? generatedByName;
 
   factory AttendanceReport.fromJson(Map<String, dynamic> j) => AttendanceReport(
+        id: j['id'] is num ? (j['id'] as num).toInt() : 0,
         total: j['total'] is num ? (j['total'] as num).toInt() : 0,
         present: j['present'] is num ? (j['present'] as num).toInt() : 0,
         absent: j['absent'] is num ? (j['absent'] as num).toInt() : 0,
@@ -391,6 +407,17 @@ class MeetingRepository {
   Future<AttendanceReport> attendance(String id) async {
     final res =
         await _dio.post<Map<String, dynamic>>('/meetings/$id/attendance');
+    final rep = res.data?['report'];
+    return AttendanceReport.fromJson(
+        rep is Map<String, dynamic> ? rep : <String, dynamic>{});
+  }
+
+  /// Host qo'lda "bor/yo'q" belgilaydi → present_ids (hozir bo'lgan hodimlar id-lari).
+  Future<AttendanceReport> updateAttendance(
+      String id, int reportId, List<int> presentIds) async {
+    final res = await _dio.put<Map<String, dynamic>>(
+        '/meetings/$id/attendance/$reportId',
+        data: {'present_ids': presentIds});
     final rep = res.data?['report'];
     return AttendanceReport.fromJson(
         rep is Map<String, dynamic> ? rep : <String, dynamic>{});

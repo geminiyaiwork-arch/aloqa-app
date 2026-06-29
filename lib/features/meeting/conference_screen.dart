@@ -288,6 +288,7 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
   bool _connecting = true;
   bool _micOn = true;
   bool _camOn = true;
+  bool _frontCam = true; // mobil old/orqa kamera holati (flip uchun)
   bool _sharing = false;
   bool _handRaised = false;
   String? _error;
@@ -890,9 +891,16 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
       await _room?.disconnect();
     } catch (_) {}
     if (!mounted) return;
-    Navigator.of(context).popUntil((r) => r.isFirst);
-    context.go('/home');
-    ScaffoldMessenger.of(context)
+    // ConferenceScreen lobby USTIGA Navigator.push(MaterialPageRoute) bilan ochiladi (imperativ route).
+    // BUG edi: popUntil(isFirst) bu route'ni yopib, ConferenceScreen context'ini DISPOSE qilardi → keyingi
+    // `context.go('/home')` o'lik context'da ishlamasdi → foydalanuvchi lobbyда qolardi.
+    // TO'G'RI: router+messenger'ni POP'dan OLDIN olib, imperativ route'ni pop qilamiz, keyin router orqali /home.
+    final router = GoRouter.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    final nav = Navigator.of(context);
+    if (nav.canPop()) nav.pop(); // ConferenceScreen → lobby (GoRoute page)
+    router.go('/home');          // lobby → dashboard (stale context'ga tayanmaydi)
+    messenger
       ..clearSnackBars()
       ..showSnackBar(SnackBar(content: Text(msg), duration: const Duration(seconds: 2)));
   }
@@ -2221,6 +2229,113 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
     }
   }
 
+  // ── Qurilma sozlamalari: mikrofon / kamera tanlash + old-orqa almashtirish ──
+  LocalVideoTrack? _cameraTrack() {
+    final pubs = _room?.localParticipant?.videoTrackPublications;
+    if (pubs == null || pubs.isEmpty) return null;
+    final t = pubs.first.track;
+    return t is LocalVideoTrack ? t : null;
+  }
+
+  Future<void> _flipCamera() async {
+    final tr = _cameraTrack();
+    if (tr == null) return;
+    setState(() => _frontCam = !_frontCam);
+    try {
+      await tr.setCameraPosition(_frontCam ? CameraPosition.front : CameraPosition.back);
+    } catch (_) {
+      // Ba'zi qurilmada faqat bitta kamera — qaytaramiz
+      setState(() => _frontCam = !_frontCam);
+    }
+  }
+
+  Widget _deviceList(List<MediaDevice> devices, String? currentId, IconData icon, ValueChanged<MediaDevice> onPick) {
+    if (devices.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 8),
+        child: Text('Qurilma topilmadi', style: TextStyle(color: AppColors.slate400)),
+      );
+    }
+    return Column(
+      children: [
+        for (final d in devices)
+          ListTile(
+            dense: true,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            leading: Icon(icon, color: d.deviceId == currentId ? AppColors.brand600 : AppColors.slate500),
+            title: Text(d.label.isNotEmpty ? d.label : 'Qurilma', style: const TextStyle(fontSize: 14)),
+            trailing: d.deviceId == currentId ? const Icon(Icons.check, color: AppColors.brand600, size: 18) : null,
+            onTap: () => onPick(d),
+          ),
+      ],
+    );
+  }
+
+  Future<void> _openDeviceSettings() async {
+    List<MediaDevice> mics = const [];
+    List<MediaDevice> cams = const [];
+    try {
+      mics = await Hardware.instance.audioInputs();
+      cams = await Hardware.instance.videoInputs();
+    } catch (_) {}
+    if (!mounted) return;
+    final curMic = Hardware.instance.selectedAudioInput?.deviceId;
+    final curCam = Hardware.instance.selectedVideoInput?.deviceId;
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.white,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Center(
+                  child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                          color: AppColors.slate200,
+                          borderRadius: BorderRadius.circular(2))),
+                ),
+                const SizedBox(height: 14),
+                const Row(children: [
+                  Icon(Icons.tune, size: 18, color: AppColors.brand600),
+                  SizedBox(width: 8),
+                  Text('Qurilma sozlamalari',
+                      style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: AppColors.slate900)),
+                ]),
+                const SizedBox(height: 12),
+                const Text('🎙  Mikrofon', style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.slate700)),
+                _deviceList(mics, curMic, Icons.mic, (d) async {
+                  Navigator.pop(ctx);
+                  try { await _room?.setAudioInputDevice(d); } catch (_) {}
+                }),
+                const SizedBox(height: 12),
+                const Text('📷  Kamera', style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.slate700)),
+                _deviceList(cams, curCam, Icons.videocam, (d) async {
+                  Navigator.pop(ctx);
+                  try { await _room?.setVideoInputDevice(d); } catch (_) {}
+                }),
+                const SizedBox(height: 14),
+                OutlinedButton.icon(
+                  onPressed: () { Navigator.pop(ctx); _flipCamera(); },
+                  icon: const Icon(Icons.cameraswitch_outlined),
+                  label: const Text('Old / orqa kamerani almashtirish'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   void _moreSheet() {
     showModalBottomSheet<void>(
       context: context,
@@ -2328,6 +2443,15 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
                   Navigator.pop(ctx);
                   _runAttendance();
                 }),
+              if (!_viewOnly)
+                _sheetTile(Icons.cameraswitch_outlined, 'Kamerani almashtirish (old/orqa)', () {
+                  Navigator.pop(ctx);
+                  _flipCamera();
+                }),
+              _sheetTile(Icons.tune, 'Sozlamalar (mikrofon / kamera)', () {
+                Navigator.pop(ctx);
+                _openDeviceSettings();
+              }),
             ],
           ),
         ),

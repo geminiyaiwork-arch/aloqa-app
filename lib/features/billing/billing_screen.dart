@@ -105,6 +105,14 @@ class _BillingBody extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final currentId = _currentPlanId(ref);
     final txs = wallet.transactions;
+    final showAll = ref.watch(showAllPlansProvider);
+    Plan? currentPlan;
+    for (final p in plans) {
+      if (p.id == currentId) {
+        currentPlan = p;
+        break;
+      }
+    }
 
     return SingleChildScrollView(
       child: Column(
@@ -192,7 +200,18 @@ class _BillingBody extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: 12),
-        if (plans.isEmpty)
+        // JORIY tarif kartasi (standart) — limit ko'rsatkichlari + davomat statistikasi + "Boshqa tarif" tugmasi
+        if (!showAll && currentPlan != null)
+          RevealUp(
+            delayMs: 160,
+            child: _CurrentPlanCard(
+              plan: currentPlan,
+              wallet: wallet,
+              onBuyAnother: () =>
+                  ref.read(showAllPlansProvider.notifier).state = true,
+            ),
+          )
+        else if (plans.isEmpty)
           RevealUp(
             delayMs: 160,
             child: AloqaCard(
@@ -208,7 +227,17 @@ class _BillingBody extends ConsumerWidget {
               ),
             ),
           )
-        else
+        else ...[
+          if (currentPlan != null)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: () =>
+                    ref.read(showAllPlansProvider.notifier).state = false,
+                icon: const Icon(Icons.arrow_back, size: 18),
+                label: const Text('Joriy tarifga qaytish'),
+              ),
+            ),
           LayoutBuilder(
             builder: (context, c) {
               final cols = c.maxWidth >= 1100
@@ -245,6 +274,7 @@ class _BillingBody extends ConsumerWidget {
               );
             },
           ),
+        ],
         const SizedBox(height: 8),
       ],
       ),
@@ -579,6 +609,130 @@ class _TxRow extends ConsumerWidget {
 // ════════════════════════════════════════════════════════════════════
 // PLAN CARD
 // ════════════════════════════════════════════════════════════════════
+String _fmtPlanDate(DateTime d) {
+  const m = ['yanvar', 'fevral', 'mart', 'aprel', 'may', 'iyun', 'iyul', 'avgust', 'sentabr', 'oktabr', 'noyabr', 'dekabr'];
+  return '${d.day} ${m[(d.month - 1).clamp(0, 11)]} ${d.year}';
+}
+
+/// JORIY tarif kartasi — limit ko'rsatkichlari + (yoqilgan bo'lsa) davomat statistikasi + "Boshqa tarif" tugmasi.
+class _CurrentPlanCard extends ConsumerWidget {
+  const _CurrentPlanCard({required this.plan, required this.wallet, required this.onBuyAnother});
+  final Plan plan;
+  final WalletInfo wallet;
+  final VoidCallback onBuyAnother;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final exp = wallet.subscription?.expiresAt;
+    return AloqaCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('SIZNING TARIFINGIZ',
+                        style: TextStyle(color: AppColors.brand600, fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 0.5)),
+                    const SizedBox(height: 4),
+                    Text(plan.name, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: AppColors.slate900)),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(color: AppColors.brand50, borderRadius: BorderRadius.circular(999)),
+                child: Text(_planPrice(plan, ref), style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.brand700)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          for (final f in _planFeatures(plan, ref))
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Icon(Icons.check_circle, size: 18, color: AppColors.brand600),
+                const SizedBox(width: 8),
+                Expanded(child: Text(f, style: const TextStyle(color: AppColors.slate600, fontSize: 14))),
+              ]),
+            ),
+          if (exp != null)
+            Container(
+              margin: const EdgeInsets.only(top: 2),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(color: const Color(0xFFFFFBEB), borderRadius: BorderRadius.circular(12)),
+              child: Text('${ref.t('billing.subscription.expires')}: ${_fmtPlanDate(exp)}',
+                  style: const TextStyle(color: Color(0xFFB45309), fontSize: 13, fontWeight: FontWeight.w600)),
+            ),
+          if (plan.attendanceEnabled) ...[
+            const SizedBox(height: 16),
+            const _AttendanceStatBlock(),
+          ],
+          const SizedBox(height: 18),
+          GradientButton(label: 'Boshqa tarif sotib olish', icon: Icons.workspace_premium, onPressed: onBuyAnother),
+        ],
+      ),
+    );
+  }
+}
+
+/// Davomat moduli STATISTIKA bloki (tarifda yoqilgan klientlar uchun).
+class _AttendanceStatBlock extends ConsumerWidget {
+  const _AttendanceStatBlock();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return ref.watch(attendanceStatsProvider).maybeWhen(
+          data: (s) {
+            if (!s.enabled) return const SizedBox.shrink();
+            Widget cell(String label, String val) => Expanded(
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 3),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.slate100),
+                    ),
+                    child: Column(children: [
+                      Text(val, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.slate900)),
+                      const SizedBox(height: 2),
+                      Text(label, textAlign: TextAlign.center, style: const TextStyle(fontSize: 10.5, color: AppColors.slate500)),
+                    ]),
+                  ),
+                );
+            return Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppColors.brand50.withOpacity(0.5),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppColors.brand100),
+              ),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('📋  Davomat moduli',
+                    style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.brand700, fontSize: 14)),
+                const SizedBox(height: 10),
+                Row(children: [
+                  cell('Hodimlar', s.maxEmployees > 0 ? '${s.employeesTotal}/${s.maxEmployees}' : '${s.employeesTotal}'),
+                  cell('Hisobotlar', '${s.reportsCount}'),
+                  cell("O'rtacha", '${s.avgPercent}%'),
+                  cell('Oxirgi', s.lastPercent != null ? '${s.lastPercent!.round()}%' : '—'),
+                ]),
+                if (s.lastTitle != null && s.lastTitle!.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text('Oxirgi: ${s.lastTitle} · ${s.lastPresent}/${s.lastTotal}',
+                      style: const TextStyle(fontSize: 12, color: AppColors.slate500)),
+                ],
+              ]),
+            );
+          },
+          orElse: () => const SizedBox.shrink(),
+        );
+  }
+}
+
 class _PlanCard extends ConsumerWidget {
   const _PlanCard({
     required this.plan,

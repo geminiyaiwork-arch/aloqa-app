@@ -105,6 +105,7 @@ class Plan {
     this.price = 0,
     this.currency,
     this.features = const [],
+    this.attendanceEnabled = false,
   });
 
   final String id;
@@ -116,11 +117,15 @@ class Plan {
   final num price;
   final String? currency;
   final List<String> features;
+  final bool attendanceEnabled; // davomat moduli tarifda yoqilganmi
 
   factory Plan.fromJson(Map<String, dynamic> j) => Plan(
         id: (j['id'] ?? '').toString(),
         name: (j['name'] ?? '').toString(),
         slug: j['slug']?.toString(),
+        attendanceEnabled: j['attendance_enabled'] == true ||
+            j['attendance_enabled'] == 1 ||
+            j['attendance_enabled'] == '1',
         maxParticipants: j['max_participants'] is num
             ? (j['max_participants'] as num).toInt()
             : 0,
@@ -174,6 +179,53 @@ class BillingRepository {
     await _dio.post<dynamic>('/subscriptions',
         data: {'plan_id': planId, 'provider': provider});
   }
+
+  /// Davomat moduli statistikasi (tarifda yoqilgan bo'lsa). Yoqilmasa enabled=false.
+  Future<AttendanceStats> attendanceStats() async {
+    final res = await _dio.get<Map<String, dynamic>>('/attendance/stats');
+    return AttendanceStats.fromJson(res.data ?? const {});
+  }
+}
+
+@immutable
+class AttendanceStats {
+  const AttendanceStats({
+    this.enabled = false,
+    this.employeesTotal = 0,
+    this.maxEmployees = 0,
+    this.reportsCount = 0,
+    this.avgPercent = 0,
+    this.lastPercent,
+    this.lastTitle,
+    this.lastPresent = 0,
+    this.lastTotal = 0,
+  });
+
+  final bool enabled;
+  final int employeesTotal;
+  final int maxEmployees;
+  final int reportsCount;
+  final num avgPercent;
+  final num? lastPercent;
+  final String? lastTitle;
+  final int lastPresent;
+  final int lastTotal;
+
+  factory AttendanceStats.fromJson(Map<String, dynamic> j) {
+    final last = j['last'] is Map ? Map<String, dynamic>.from(j['last'] as Map) : null;
+    int asInt(dynamic v) => v is num ? v.toInt() : 0;
+    return AttendanceStats(
+      enabled: j['enabled'] == true,
+      employeesTotal: asInt(j['employees_total']),
+      maxEmployees: asInt(j['max_employees']),
+      reportsCount: asInt(j['reports_count']),
+      avgPercent: j['avg_percent'] is num ? j['avg_percent'] as num : 0,
+      lastPercent: last != null && last['percent'] is num ? last['percent'] as num : null,
+      lastTitle: last?['meeting_title']?.toString(),
+      lastPresent: last != null ? asInt(last['present']) : 0,
+      lastTotal: last != null ? asInt(last['total']) : 0,
+    );
+  }
 }
 
 typedef BillingData = ({WalletInfo wallet, List<Plan> plans});
@@ -182,4 +234,16 @@ final billingProvider = FutureProvider.autoDispose<BillingData>((ref) async {
   final r = BillingRepository.instance;
   final results = await Future.wait([r.wallet(), r.plans()]);
   return (wallet: results[0] as WalletInfo, plans: results[1] as List<Plan>);
+});
+
+/// "Boshqa tarif sotib olish" bosilganda TRUE — to'liq tariflar ro'yxati ko'rinadi.
+final showAllPlansProvider = StateProvider.autoDispose<bool>((ref) => false);
+
+/// Davomat statistikasi (tarifda yoqilgan klientlar uchun).
+final attendanceStatsProvider = FutureProvider.autoDispose<AttendanceStats>((ref) async {
+  try {
+    return await BillingRepository.instance.attendanceStats();
+  } catch (_) {
+    return const AttendanceStats(enabled: false);
+  }
 });

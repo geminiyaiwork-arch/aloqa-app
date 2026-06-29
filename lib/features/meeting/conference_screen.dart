@@ -1897,70 +1897,164 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
     final p = _poll!;
     final total = p.counts.fold<int>(0, (a, b) => a + b);
     final showResults = p.closed || p.myVote != null || _isHost;
+    final maxCount =
+        p.counts.isEmpty ? 0 : p.counts.reduce((a, b) => a > b ? a : b);
     return Container(
-      width: 240,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: const Color(0xFF111318), borderRadius: BorderRadius.circular(14)),
+      width: 280,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.slate200),
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withOpacity(0.16),
+              blurRadius: 24,
+              offset: const Offset(0, 8)),
+        ],
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(p.question, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-          const SizedBox(height: 8),
-          for (var i = 0; i < p.options.length; i++)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: showResults
-                  ? _pollResultRow(p.options[i], p.counts[i], total, p.myVote == i)
-                  : SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton(
-                        onPressed: () => _votePoll(i),
-                        style: OutlinedButton.styleFrom(foregroundColor: Colors.white),
-                        child: Align(alignment: Alignment.centerLeft, child: Text(p.options[i])),
-                      ),
-                    ),
+          // gradient sarlavha
+          Container(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                  colors: [AppColors.brand600, AppColors.brand500]),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
             ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(ref.t('mobile.conf.pollVotes', {'count': '$total'}), style: const TextStyle(color: Colors.white38, fontSize: 11)),
-              if (_isHost && !p.closed)
-                GestureDetector(
-                  onTap: _closePoll,
-                  child: Text(ref.t('mobile.conf.pollClose'), style: const TextStyle(color: Colors.redAccent, fontSize: 12)),
+            child: Row(
+              children: [
+                const Text('📊', style: TextStyle(fontSize: 18)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(p.question,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 13.5)),
+                      Text(
+                        '${p.closed ? ref.t('poll.card.closed') : ref.t('poll.card.live')} · ${ref.t('mobile.conf.pollVotes', {'count': '$total'})}',
+                        style: const TextStyle(
+                            color: Colors.white70, fontSize: 11),
+                      ),
+                    ],
+                  ),
                 ),
-            ],
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (var i = 0; i < p.options.length; i++)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: showResults
+                        ? _pollResultRow(p.options[i], p.counts[i], total,
+                            p.myVote == i, p.counts[i] == maxCount && total > 0)
+                        : SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton(
+                              onPressed: () => _votePoll(i),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppColors.slate700,
+                                side: const BorderSide(
+                                    color: AppColors.slate200),
+                                padding: const EdgeInsets.symmetric(
+                                    vertical: 12, horizontal: 12),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12)),
+                              ),
+                              child: Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(p.options[i])),
+                            ),
+                          ),
+                  ),
+                if (_isHost && !p.closed)
+                  SizedBox(
+                    width: double.infinity,
+                    child: TextButton(
+                      onPressed: _closePoll,
+                      child: Text(ref.t('poll.card.close'),
+                          style: const TextStyle(
+                              color: AppColors.danger,
+                              fontWeight: FontWeight.w600)),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _pollResultRow(String label, int count, int total, bool mine) {
+  Widget _pollResultRow(
+      String label, int count, int total, bool mine, bool winner) {
     final pct = total == 0 ? 0 : (count / total * 100).round();
     return Stack(
       children: [
         Container(
-          height: 30,
-          decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(8)),
-        ),
-        FractionallySizedBox(
-          widthFactor: total == 0 ? 0 : count / total,
-          child: Container(
-            height: 30,
-            decoration: BoxDecoration(color: const Color(0x663F51B5), borderRadius: BorderRadius.circular(8)),
+          height: 40,
+          decoration: BoxDecoration(
+            color: AppColors.slate100,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+                color: winner ? AppColors.brand200 : AppColors.slate100),
           ),
         ),
-        Container(
-          height: 30,
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          alignment: Alignment.centerLeft,
-          child: Row(
-            children: [
-              Expanded(child: Text('${mine ? '✓ ' : ''}$label', style: const TextStyle(color: Colors.white, fontSize: 12))),
-              Text('$pct%', style: const TextStyle(color: Colors.white70, fontSize: 12)),
-            ],
+        Positioned.fill(
+          child: FractionallySizedBox(
+            alignment: Alignment.centerLeft,
+            widthFactor: total == 0 ? 0 : count / total,
+            child: Container(
+              decoration: BoxDecoration(
+                color: winner
+                    ? AppColors.brand500.withOpacity(0.25)
+                    : AppColors.slate200,
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+        ),
+        Positioned.fill(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Row(
+              children: [
+                if (mine)
+                  const Padding(
+                    padding: EdgeInsets.only(right: 4),
+                    child: Icon(Icons.check,
+                        size: 15, color: AppColors.brand600),
+                  ),
+                Expanded(
+                  child: Text(label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color:
+                              winner ? AppColors.brand700 : AppColors.slate700)),
+                ),
+                Text('$pct%',
+                    style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: winner ? AppColors.brand700 : AppColors.slate500)),
+              ],
+            ),
           ),
         ),
       ],

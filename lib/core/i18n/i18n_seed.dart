@@ -6,6 +6,9 @@ library;
 
 const Map<String, Map<String, String>> kI18nSeed = {
   'uz': {
+    'conf.endTitle': 'Qoʻngʻiroqni tugatish',
+    'conf.leaveHint': 'Siz chiqasiz, uchrashuv davom etadi — keyin qayta kira olasiz',
+    'poll.card.live': 'Jonli',
     'mobile.billing.loadError': 'Maʼlumotlarni yuklab boʻlmadi. Qayta urinib koʻring.',
     'mobile.billing.reload': 'Qayta yuklash',
     'mobile.billing.plansEmpty': 'Tariflar hozircha mavjud emas.',

@@ -6,7 +6,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 
 # Version: bump build number every APK. 1.1.1+5 = dashboard widgets (welcome
 # header + live stat tiles: meetings/this-week/recordings/balance).
-version: 1.4.6+36
+version: 1.4.7+37
 
 environment:
   sdk: '>=3.4.3 <4.0.0'

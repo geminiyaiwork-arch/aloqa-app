@@ -857,7 +857,7 @@ class _MeetingManageScreenState extends ConsumerState<MeetingManageScreen> {
           const SizedBox(height: 14),
           if (!isLive && !isEnded) ...[
             GradientButton(
-              label: ref.t('landing.cta.start'),
+              label: ref.t('meeting.startMeeting'),
               icon: Icons.play_arrow_rounded,
               busy: _busyStart,
               onPressed: _busyStart ? null : _startMeeting,

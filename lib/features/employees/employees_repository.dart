@@ -240,6 +240,11 @@ class EmployeesRepository {
       lastPage: i(d['last_page']) < 1 ? 1 : i(d['last_page']),
     );
   }
+
+  /// O'tgan sessiya uchun davomatni KEYIN hisoblash.
+  Future<void> sessionAttendance(int sessionId) async {
+    await _dio.post<dynamic>('/attendance/session/$sessionId');
+  }
 }
 
 @immutable

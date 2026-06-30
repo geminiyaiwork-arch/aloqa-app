@@ -1922,6 +1922,11 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
                 ),
                 const Spacer(),
                 TextButton(onPressed: _wbClear, child: Text(ref.t('mobile.conf.wbClear'), style: const TextStyle(color: Colors.redAccent))),
+                IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white, size: 20),
+                  tooltip: 'Doskani yopish',
+                  onPressed: () => setState(() => _boardOpen = false),
+                ),
               ],
             ),
           ),

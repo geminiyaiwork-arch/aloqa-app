@@ -1200,6 +1200,13 @@ class _ReportsViewState extends ConsumerState<_ReportsView> {
     }
   }
 
+  Future<void> _countSession(int sessionId) async {
+    try {
+      await EmployeesRepository.instance.sessionAttendance(sessionId);
+    } catch (_) {}
+    await _load(_page);
+  }
+
   Future<void> _pickDate(bool isFrom) async {
     final picked = await showDatePicker(
       context: context,
@@ -1364,13 +1371,15 @@ class _ReportsViewState extends ConsumerState<_ReportsView> {
             ] else
               Align(
                 alignment: Alignment.centerLeft,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                      color: const Color(0xFFFFFBEB), borderRadius: BorderRadius.circular(20)),
-                  child: const Text('Davomat hisoblanmagan',
-                      style: TextStyle(
-                          fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFFB45309))),
+                child: OutlinedButton.icon(
+                  onPressed: () => _countSession(r.id),
+                  icon: const Icon(Icons.fact_check_outlined, size: 18),
+                  label: const Text('Davomatni hisoblash'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFFB45309),
+                    side: const BorderSide(color: Color(0xFFFDE68A)),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  ),
                 ),
               ),
           ],

@@ -42,6 +42,7 @@ class AttendanceHistoryReport {
     this.endedAt,
     this.generatedAt,
     this.generatedByName,
+    this.hasAttendance = false,
     this.items = const [],
   });
 
@@ -58,6 +59,7 @@ class AttendanceHistoryReport {
   final DateTime? endedAt;
   final DateTime? generatedAt;
   final String? generatedByName;
+  final bool hasAttendance;
   final List<AttendanceItem> items;
 
   factory AttendanceHistoryReport.fromJson(Map<String, dynamic> j) {
@@ -77,6 +79,7 @@ class AttendanceHistoryReport {
       endedAt: dt(j['ended_at']),
       generatedAt: dt(j['generated_at']),
       generatedByName: j['generated_by_name']?.toString(),
+      hasAttendance: j['has_attendance'] == true,
       items: j['items'] is List
           ? (j['items'] as List)
               .whereType<Map<String, dynamic>>()
@@ -211,25 +214,44 @@ class EmployeesRepository {
         : <MeetingContact>[];
   }
 
-  /// Davomat hisobotlari tarixi (Davomat menyusi).
-  Future<List<AttendanceHistoryReport>> attendanceHistory() async {
-    final res = await _dio.get<Map<String, dynamic>>('/attendance/history');
-    final list = res.data?['reports'];
-    return list is List
-        ? list
-            .whereType<Map<String, dynamic>>()
-            .map(AttendanceHistoryReport.fromJson)
-            .toList()
+  /// Davomat hisobotlari tarixi (Davomat menyusi) — sessiyalar, sahifalash + vaqt-filtr.
+  Future<AttendanceHistoryResult> attendanceHistory({
+    int page = 1,
+    int perPage = 20,
+    String? from,
+    String? to,
+  }) async {
+    final res = await _dio.get<Map<String, dynamic>>('/attendance/history', queryParameters: {
+      'page': page,
+      'per_page': perPage,
+      if (from != null && from.isNotEmpty) 'from': from,
+      if (to != null && to.isNotEmpty) 'to': to,
+    });
+    final d = res.data ?? const {};
+    final list = d['reports'];
+    final reports = list is List
+        ? list.whereType<Map<String, dynamic>>().map(AttendanceHistoryReport.fromJson).toList()
         : <AttendanceHistoryReport>[];
+    int i(dynamic v) => v is num ? v.toInt() : 0;
+    return AttendanceHistoryResult(
+      reports: reports,
+      total: i(d['total']),
+      page: i(d['page']) < 1 ? 1 : i(d['page']),
+      lastPage: i(d['last_page']) < 1 ? 1 : i(d['last_page']),
+    );
   }
+}
+
+@immutable
+class AttendanceHistoryResult {
+  const AttendanceHistoryResult({this.reports = const [], this.total = 0, this.page = 1, this.lastPage = 1});
+  final List<AttendanceHistoryReport> reports;
+  final int total;
+  final int page;
+  final int lastPage;
 }
 
 final employeesProvider =
     FutureProvider.autoDispose<EmployeesResult>((ref) async {
   return EmployeesRepository.instance.list();
-});
-
-final attendanceHistoryProvider =
-    FutureProvider.autoDispose<List<AttendanceHistoryReport>>((ref) async {
-  return EmployeesRepository.instance.attendanceHistory();
 });

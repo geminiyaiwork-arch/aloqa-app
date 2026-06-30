@@ -1159,8 +1159,64 @@ String _fmtDt(DateTime? d) {
 }
 
 /// Davomat hisobotlari ro'yxati (Davomat menyusi "Hisobotlar" tab) + Batafsil.
-class _ReportsView extends ConsumerWidget {
+class _ReportsView extends ConsumerStatefulWidget {
   const _ReportsView();
+
+  @override
+  ConsumerState<_ReportsView> createState() => _ReportsViewState();
+}
+
+class _ReportsViewState extends ConsumerState<_ReportsView> {
+  AttendanceHistoryResult? _data;
+  bool _loading = true;
+  int _page = 1;
+  DateTime? _from;
+  DateTime? _to;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  String? _ymd(DateTime? d) => d == null
+      ? null
+      : '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  Future<void> _load([int? page]) async {
+    setState(() => _loading = true);
+    try {
+      final res = await EmployeesRepository.instance.attendanceHistory(
+          page: page ?? _page, perPage: 20, from: _ymd(_from), to: _ymd(_to));
+      if (!mounted) return;
+      setState(() {
+        _data = res;
+        _page = res.page;
+        _loading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _pickDate(bool isFrom) async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: (isFrom ? _from : _to) ?? DateTime(2026, 6, 30),
+      firstDate: DateTime(2024),
+      lastDate: DateTime(2030),
+    );
+    if (picked != null) {
+      setState(() {
+        if (isFrom) {
+          _from = picked;
+        } else {
+          _to = picked;
+        }
+      });
+    }
+  }
 
   Widget _pill(String text, Color bg, Color fg) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
@@ -1168,101 +1224,158 @@ class _ReportsView extends ConsumerWidget {
         child: Text(text, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: fg)),
       );
 
+  Widget _dateBtn(String label, DateTime? val, VoidCallback onTap) => OutlinedButton.icon(
+        onPressed: onTap,
+        icon: const Icon(Icons.calendar_today_outlined, size: 15),
+        label: Text(val == null ? label : '${val.day}-${val.month}-${val.year}',
+            overflow: TextOverflow.ellipsis),
+        style: OutlinedButton.styleFrom(
+            foregroundColor: AppColors.slate700,
+            side: const BorderSide(color: AppColors.slate200),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10)),
+      );
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final async = ref.watch(attendanceHistoryProvider);
-    return async.when(
-      loading: () => const Center(child: CircularProgressIndicator(color: AppColors.brand600)),
-      error: (_, __) => Center(
-          child: Text(ref.tt('common.error'), style: const TextStyle(color: AppColors.slate400))),
-      data: (reports) {
-        if (reports.isEmpty) {
-          return const Center(
-            child: Padding(
-              padding: EdgeInsets.all(32),
-              child: Text('Hali davomat hisoboti yo‘q.\nKonferensiyada davomatni hisoblang.',
-                  textAlign: TextAlign.center, style: TextStyle(color: AppColors.slate400)),
+  Widget build(BuildContext context) {
+    final d = _data;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(children: [
+          Expanded(child: _dateBtn('Sanadan', _from, () => _pickDate(true))),
+          const SizedBox(width: 8),
+          Expanded(child: _dateBtn('Sanagacha', _to, () => _pickDate(false))),
+          const SizedBox(width: 8),
+          FilledButton(
+            onPressed: () {
+              _page = 1;
+              _load(1);
+            },
+            style: FilledButton.styleFrom(backgroundColor: AppColors.brand600),
+            child: const Text('Filtr'),
+          ),
+        ]),
+        if (_from != null || _to != null)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton(
+              onPressed: () {
+                setState(() {
+                  _from = null;
+                  _to = null;
+                });
+                _page = 1;
+                _load(1);
+              },
+              child: const Text('Tozalash'),
             ),
-          );
-        }
-        return RefreshIndicator(
-          onRefresh: () async => ref.invalidate(attendanceHistoryProvider),
-          child: ListView.separated(
-            padding: const EdgeInsets.only(bottom: 16),
-            itemCount: reports.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 12),
-            itemBuilder: (ctx, i) {
-              final r = reports[i];
-              return AloqaCard(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(r.meetingTitle,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 15,
-                                  color: AppColors.slate900)),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                              color: AppColors.slate100,
-                              borderRadius: BorderRadius.circular(6)),
-                          child: Text('#${r.meetingId}',
-                              style: const TextStyle(fontSize: 11, color: AppColors.slate400)),
-                        ),
-                        if (r.sessionNo > 1) ...[
-                          const SizedBox(width: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                                color: AppColors.brand50,
-                                borderRadius: BorderRadius.circular(6)),
-                            child: Text('${r.sessionNo}-sessiya',
-                                style: const TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppColors.brand700)),
-                          ),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text('Boshlandi: ${_fmtDt(r.startedAt)}',
-                        style: const TextStyle(fontSize: 12, color: AppColors.slate400)),
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        _pill('Jami: ${r.total}', AppColors.slate100, AppColors.slate600),
-                        _pill('Qatnashdi: ${r.present}', const Color(0xFFD1FAE5), const Color(0xFF047857)),
-                        _pill('Qatnashmadi: ${r.absent}', const Color(0xFFFEE2E2), AppColors.danger),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      width: double.infinity,
-                      child: GradientButton(
-                        label: 'Batafsil',
-                        icon: Icons.list_alt_outlined,
-                        onPressed: () => _showDetail(context, ref, r),
+          ),
+        const SizedBox(height: 6),
+        Expanded(
+          child: _loading
+              ? const Center(child: CircularProgressIndicator(color: AppColors.brand600))
+              : (d == null || d.reports.isEmpty)
+                  ? const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(32),
+                        child: Text('Konferensiya tarixи yo‘q.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: AppColors.slate400)),
+                      ),
+                    )
+                  : RefreshIndicator(
+                      onRefresh: () => _load(),
+                      child: ListView.separated(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        itemCount: d.reports.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 12),
+                        itemBuilder: (ctx, i) => _reportCard(d.reports[i]),
                       ),
                     ),
-                  ],
-                ),
-              );
-            },
+        ),
+        if (d != null && d.lastPage > 1)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              IconButton(
+                  onPressed: _page > 1 ? () => _load(_page - 1) : null,
+                  icon: const Icon(Icons.chevron_left)),
+              Text('$_page / ${d.lastPage}', style: const TextStyle(color: AppColors.slate600)),
+              IconButton(
+                  onPressed: _page < d.lastPage ? () => _load(_page + 1) : null,
+                  icon: const Icon(Icons.chevron_right)),
+            ]),
           ),
-        );
-      },
+      ],
     );
   }
+
+  Widget _reportCard(AttendanceHistoryReport r) => AloqaCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(children: [
+              Expanded(
+                child: Text(r.meetingTitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w700, fontSize: 15, color: AppColors.slate900)),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration:
+                    BoxDecoration(color: AppColors.slate100, borderRadius: BorderRadius.circular(6)),
+                child: Text('#${r.meetingId}',
+                    style: const TextStyle(fontSize: 11, color: AppColors.slate400)),
+              ),
+              if (r.sessionNo > 1) ...[
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration:
+                      BoxDecoration(color: AppColors.brand50, borderRadius: BorderRadius.circular(6)),
+                  child: Text('${r.sessionNo}-sessiya',
+                      style: const TextStyle(
+                          fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.brand700)),
+                ),
+              ],
+            ]),
+            const SizedBox(height: 4),
+            Text(
+                'Boshlandi: ${_fmtDt(r.startedAt)}${r.endedAt != null ? '  ·  Tugadi: ${_fmtDt(r.endedAt)}' : ''}',
+                style: const TextStyle(fontSize: 12, color: AppColors.slate400)),
+            const SizedBox(height: 10),
+            if (r.hasAttendance) ...[
+              Wrap(spacing: 8, runSpacing: 8, children: [
+                _pill('Jami: ${r.total}', AppColors.slate100, AppColors.slate600),
+                _pill('Qatnashdi: ${r.present}', const Color(0xFFD1FAE5), const Color(0xFF047857)),
+                _pill('Qatnashmadi: ${r.absent}', const Color(0xFFFEE2E2), AppColors.danger),
+              ]),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: GradientButton(
+                  label: 'Batafsil',
+                  icon: Icons.list_alt_outlined,
+                  onPressed: () => _showDetail(context, ref, r),
+                ),
+              ),
+            ] else
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                      color: const Color(0xFFFFFBEB), borderRadius: BorderRadius.circular(20)),
+                  child: const Text('Davomat hisoblanmagan',
+                      style: TextStyle(
+                          fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFFB45309))),
+                ),
+              ),
+          ],
+        ),
+      );
 
   void _showDetail(BuildContext context, WidgetRef ref, AttendanceHistoryReport r) {
     Widget cell(String v, String label, Color bg, Color fg) => Expanded(

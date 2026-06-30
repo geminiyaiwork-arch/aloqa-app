@@ -31,6 +31,7 @@ class AttendanceHistoryReport {
   const AttendanceHistoryReport({
     this.id = 0,
     this.meetingId = 0,
+    this.sessionNo = 1,
     this.meetingTitle = '',
     this.meetingCode,
     this.total = 0,
@@ -46,6 +47,7 @@ class AttendanceHistoryReport {
 
   final int id;
   final int meetingId;
+  final int sessionNo;
   final String meetingTitle;
   final String? meetingCode;
   final int total;
@@ -64,6 +66,7 @@ class AttendanceHistoryReport {
     return AttendanceHistoryReport(
       id: i(j['id']),
       meetingId: i(j['meeting_id']),
+      sessionNo: j['session_no'] is num ? (j['session_no'] as num).toInt() : 1,
       meetingTitle: (j['meeting_title'] ?? '').toString(),
       meetingCode: j['meeting_code']?.toString(),
       total: i(j['total']),

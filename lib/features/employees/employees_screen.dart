@@ -1216,6 +1216,20 @@ class _ReportsView extends ConsumerWidget {
                           child: Text('#${r.meetingId}',
                               style: const TextStyle(fontSize: 11, color: AppColors.slate400)),
                         ),
+                        if (r.sessionNo > 1) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                                color: AppColors.brand50,
+                                borderRadius: BorderRadius.circular(6)),
+                            child: Text('${r.sessionNo}-sessiya',
+                                style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.brand700)),
+                          ),
+                        ],
                       ],
                     ),
                     const SizedBox(height: 4),
@@ -1287,7 +1301,8 @@ class _ReportsView extends ConsumerWidget {
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppColors.slate900)),
-                          Text('#${r.meetingId}${r.meetingCode != null ? ' · ${r.meetingCode}' : ''}',
+                          Text(
+                              '#${r.meetingId}${r.meetingCode != null ? ' · ${r.meetingCode}' : ''}${r.sessionNo > 1 ? ' · ${r.sessionNo}-sessiya' : ''}',
                               style: const TextStyle(fontSize: 12, color: AppColors.slate400)),
                         ],
                       ),

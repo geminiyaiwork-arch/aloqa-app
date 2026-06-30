@@ -34,6 +34,7 @@ class EmployeesScreen extends ConsumerStatefulWidget {
 class _EmployeesScreenState extends ConsumerState<EmployeesScreen> {
   /// Ids being optimistically removed (hidden from the grid while delete flies).
   final Set<int> _removing = <int>{};
+  int _tab = 0; // 0 = Hodimlar, 1 = Davomat hisobotlari
 
   @override
   Widget build(BuildContext context) {
@@ -50,15 +51,173 @@ class _EmployeesScreenState extends ConsumerState<EmployeesScreen> {
           if (!res.attendanceEnabled) {
             return const _GatedState();
           }
-          return _Main(
-            res: res,
-            removing: _removing,
-            onAdd: () => _openEmployeeModal(),
-            onEdit: (emp) => _openEmployeeModal(editing: emp),
-            onDelete: (emp) => _confirmDelete(emp),
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _tabBar(),
+              const SizedBox(height: 14),
+              Expanded(
+                child: _tab == 0
+                    ? _Main(
+                        res: res,
+                        removing: _removing,
+                        onAdd: () => _openEmployeeModal(),
+                        onEdit: (emp) => _openEmployeeModal(editing: emp),
+                        onDelete: (emp) => _confirmDelete(emp),
+                      )
+                    : const _ReportsView(),
+              ),
+            ],
           );
         },
       ),
+    );
+  }
+
+  Widget _tabBar() {
+    Widget seg(int i, String label) => Expanded(
+          child: GestureDetector(
+            onTap: () => setState(() => _tab = i),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              decoration: BoxDecoration(
+                color: _tab == i ? Colors.white : Colors.transparent,
+                borderRadius: BorderRadius.circular(10),
+                boxShadow: _tab == i
+                    ? [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 4)]
+                    : null,
+              ),
+              child: Text(label,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: _tab == i ? AppColors.brand700 : AppColors.slate500)),
+            ),
+          ),
+        );
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: AppColors.slate100,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(children: [seg(0, 'Hodimlar'), seg(1, 'Davomat hisobotlari')]),
+    );
+  }
+
+  /// Kontaktdan tanlash — uchrashuv kontaktlarini ko'rsatadi, tanlanganini qaytaradi.
+  Future<MeetingContact?> _showContactPicker() {
+    return showModalBottomSheet<MeetingContact>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) {
+        var query = '';
+        return StatefulBuilder(builder: (ctx, setSheet) {
+          return DraggableScrollableSheet(
+            expand: false,
+            initialChildSize: 0.7,
+            maxChildSize: 0.92,
+            minChildSize: 0.4,
+            builder: (ctx, scrollCtrl) {
+              return Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Center(
+                      child: Container(
+                          width: 40,
+                          height: 4,
+                          decoration: BoxDecoration(
+                              color: AppColors.slate200,
+                              borderRadius: BorderRadius.circular(2))),
+                    ),
+                    const SizedBox(height: 12),
+                    const Text('Kontaktni tanlang',
+                        style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 16,
+                            color: AppColors.slate900)),
+                    const SizedBox(height: 10),
+                    TextField(
+                      onChanged: (v) => setSheet(() => query = v),
+                      decoration: InputDecoration(
+                        hintText: 'Qidirish…',
+                        prefixIcon: const Icon(Icons.search, size: 20),
+                        isDense: true,
+                        filled: true,
+                        fillColor: AppColors.slate50,
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Expanded(
+                      child: FutureBuilder<List<MeetingContact>>(
+                        future: EmployeesRepository.instance.meetingContacts(),
+                        builder: (ctx, snap) {
+                          if (snap.connectionState != ConnectionState.done) {
+                            return const Center(
+                                child: CircularProgressIndicator(
+                                    color: AppColors.brand600));
+                          }
+                          final all = snap.data ?? const <MeetingContact>[];
+                          final q = query.trim().toLowerCase();
+                          final items = q.isEmpty
+                              ? all
+                              : all
+                                  .where((c) =>
+                                      c.name.toLowerCase().contains(q) ||
+                                      (c.phone ?? '').contains(q) ||
+                                      (c.email ?? '').toLowerCase().contains(q))
+                                  .toList();
+                          if (items.isEmpty) {
+                            return const Center(
+                                child: Text('Kontaktlar topilmadi',
+                                    style: TextStyle(color: AppColors.slate400)));
+                          }
+                          return ListView.builder(
+                            controller: scrollCtrl,
+                            itemCount: items.length,
+                            itemBuilder: (ctx, i) {
+                              final c = items[i];
+                              return ListTile(
+                                onTap: () => Navigator.of(ctx).pop(c),
+                                leading: (c.avatar != null && c.avatar!.isNotEmpty)
+                                    ? CircleAvatar(
+                                        backgroundImage:
+                                            CachedNetworkImageProvider(c.avatar!))
+                                    : CircleAvatar(
+                                        backgroundColor: AppColors.brand600,
+                                        child: Text(
+                                            (c.name.isEmpty ? '?' : c.name[0])
+                                                .toUpperCase(),
+                                            style: const TextStyle(
+                                                color: Colors.white))),
+                                title: Text(c.name,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis),
+                                subtitle: Text(c.phone ?? c.email ?? '—',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis),
+                              );
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          );
+        });
+      },
     );
   }
 
@@ -187,6 +346,33 @@ class _EmployeesScreenState extends ConsumerState<EmployeesScreen> {
                         ],
                       ),
                       const SizedBox(height: 20),
+                      if (!isEdit) ...[
+                        OutlinedButton.icon(
+                          onPressed: busy
+                              ? null
+                              : () async {
+                                  final c = await _showContactPicker();
+                                  if (c != null) {
+                                    nameCtrl.text = c.name;
+                                    if (c.phone != null &&
+                                        c.phone!.trim().isNotEmpty) {
+                                      phoneCtrl.text = c.phone!.trim();
+                                    }
+                                    setModal(() {});
+                                  }
+                                },
+                          icon: const Icon(Icons.contacts_outlined, size: 18),
+                          label: const Text('Kontaktdan tanlash'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppColors.brand700,
+                            side: const BorderSide(color: AppColors.brand200),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
                       _PhotoPicker(
                         name: nameCtrl.text.trim().isEmpty
                             ? (editing?.name ?? '')
@@ -959,6 +1145,241 @@ class _EmptyRoster extends ConsumerWidget {
             style: const TextStyle(fontSize: 14, color: AppColors.slate400),
           ),
         ],
+      ),
+    );
+  }
+}
+
+String _fmtDt(DateTime? d) {
+  if (d == null) return '—';
+  const m = ['yan', 'fev', 'mar', 'apr', 'may', 'iyn', 'iyl', 'avg', 'sen', 'okt', 'noy', 'dek'];
+  final hh = d.hour.toString().padLeft(2, '0');
+  final mm = d.minute.toString().padLeft(2, '0');
+  return '${d.day}-${m[(d.month - 1).clamp(0, 11)]}, $hh:$mm';
+}
+
+/// Davomat hisobotlari ro'yxati (Davomat menyusi "Hisobotlar" tab) + Batafsil.
+class _ReportsView extends ConsumerWidget {
+  const _ReportsView();
+
+  Widget _pill(String text, Color bg, Color fg) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
+        child: Text(text, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: fg)),
+      );
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(attendanceHistoryProvider);
+    return async.when(
+      loading: () => const Center(child: CircularProgressIndicator(color: AppColors.brand600)),
+      error: (_, __) => Center(
+          child: Text(ref.tt('common.error'), style: const TextStyle(color: AppColors.slate400))),
+      data: (reports) {
+        if (reports.isEmpty) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(32),
+              child: Text('Hali davomat hisoboti yo‘q.\nKonferensiyada davomatni hisoblang.',
+                  textAlign: TextAlign.center, style: TextStyle(color: AppColors.slate400)),
+            ),
+          );
+        }
+        return RefreshIndicator(
+          onRefresh: () async => ref.invalidate(attendanceHistoryProvider),
+          child: ListView.separated(
+            padding: const EdgeInsets.only(bottom: 16),
+            itemCount: reports.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 12),
+            itemBuilder: (ctx, i) {
+              final r = reports[i];
+              return AloqaCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(r.meetingTitle,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 15,
+                                  color: AppColors.slate900)),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                              color: AppColors.slate100,
+                              borderRadius: BorderRadius.circular(6)),
+                          child: Text('#${r.meetingId}',
+                              style: const TextStyle(fontSize: 11, color: AppColors.slate400)),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text('Boshlandi: ${_fmtDt(r.startedAt)}',
+                        style: const TextStyle(fontSize: 12, color: AppColors.slate400)),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        _pill('Jami: ${r.total}', AppColors.slate100, AppColors.slate600),
+                        _pill('Qatnashdi: ${r.present}', const Color(0xFFD1FAE5), const Color(0xFF047857)),
+                        _pill('Qatnashmadi: ${r.absent}', const Color(0xFFFEE2E2), AppColors.danger),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: GradientButton(
+                        label: 'Batafsil',
+                        icon: Icons.list_alt_outlined,
+                        onPressed: () => _showDetail(context, ref, r),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  void _showDetail(BuildContext context, WidgetRef ref, AttendanceHistoryReport r) {
+    Widget cell(String v, String label, Color bg, Color fg) => Expanded(
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 3),
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(12)),
+            child: Column(children: [
+              Text(v, style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: fg)),
+              const SizedBox(height: 2),
+              Text(label, textAlign: TextAlign.center, style: const TextStyle(fontSize: 10.5, color: AppColors.slate500)),
+            ]),
+          ),
+        );
+    showDialog<void>(
+      context: context,
+      builder: (dialogCtx) => Dialog(
+        backgroundColor: Colors.white,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 36),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(r.meetingTitle,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppColors.slate900)),
+                          Text('#${r.meetingId}${r.meetingCode != null ? ' · ${r.meetingCode}' : ''}',
+                              style: const TextStyle(fontSize: 12, color: AppColors.slate400)),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                        onPressed: () => Navigator.of(dialogCtx).pop(),
+                        icon: const Icon(Icons.close, color: AppColors.slate400)),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(children: [
+                  cell('${r.total}', 'Jami', AppColors.slate50, AppColors.slate900),
+                  cell('${r.present}', 'Qatnashdi', const Color(0xFFECFDF5), const Color(0xFF047857)),
+                  cell('${r.absent}', 'Qatnashmadi', const Color(0xFFFEF2F2), AppColors.danger),
+                  cell('${r.percent.round()}%', 'Foiz', AppColors.brand50, AppColors.brand700),
+                ]),
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(color: AppColors.slate50, borderRadius: BorderRadius.circular(12)),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Boshlandi: ${_fmtDt(r.startedAt)}', style: const TextStyle(fontSize: 13, color: AppColors.slate700)),
+                      const SizedBox(height: 2),
+                      Text('Tugadi: ${_fmtDt(r.endedAt)}', style: const TextStyle(fontSize: 13, color: AppColors.slate700)),
+                      if (r.generatedByName != null && r.generatedByName!.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Text('Sanagan: ${r.generatedByName}', style: const TextStyle(fontSize: 12, color: AppColors.slate400)),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+                const Text('Hodimlar', style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.slate700)),
+                const SizedBox(height: 8),
+                if (r.items.isEmpty)
+                  const Text('Hodim yo‘q', style: TextStyle(color: AppColors.slate400))
+                else
+                  for (final it in r.items)
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: it.present ? const Color(0xFFECFDF5) : AppColors.slate100,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          if (it.photo != null && it.photo!.isNotEmpty)
+                            CircleAvatar(radius: 18, backgroundImage: CachedNetworkImageProvider(it.photo!))
+                          else
+                            CircleAvatar(
+                                radius: 18,
+                                backgroundColor: AppColors.brand600,
+                                child: Text((it.name.isEmpty ? '?' : it.name[0]).toUpperCase(),
+                                    style: const TextStyle(color: Colors.white))),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(it.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.slate900)),
+                                Text((it.position == null || it.position!.trim().isEmpty) ? '—' : it.position!, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: AppColors.slate400)),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            decoration: BoxDecoration(
+                                color: it.present ? const Color(0xFFD1FAE5) : AppColors.danger.withOpacity(0.12),
+                                borderRadius: BorderRadius.circular(20)),
+                            child: Text(
+                                it.present
+                                    ? (it.minutes > 0 ? '✓ ${it.minutes} daq' : '✓ Bor')
+                                    : 'Yo‘q',
+                                style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: it.present ? const Color(0xFF047857) : AppColors.danger)),
+                          ),
+                        ],
+                      ),
+                    ),
+                const SizedBox(height: 8),
+                GradientButton(label: ref.tt('conf.att.close'), onPressed: () => Navigator.of(dialogCtx).pop()),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

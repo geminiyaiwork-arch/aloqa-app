@@ -6,6 +6,83 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/network/dio_client.dart';
+import '../meeting/meeting_models.dart' show AttendanceItem;
+
+/// Kontakt (uchrashuv ishtirokchisi) — davomatga hodim qo'shishda tanlash uchun.
+@immutable
+class MeetingContact {
+  const MeetingContact({required this.name, this.phone, this.email, this.avatar});
+  final String name;
+  final String? phone;
+  final String? email;
+  final String? avatar;
+
+  factory MeetingContact.fromJson(Map<String, dynamic> j) => MeetingContact(
+        name: (j['name'] ?? '').toString(),
+        phone: j['phone']?.toString(),
+        email: j['email']?.toString(),
+        avatar: j['avatar']?.toString(),
+      );
+}
+
+/// Davomat hisoboti (Davomat menyusi ro'yxati + Batafsil).
+@immutable
+class AttendanceHistoryReport {
+  const AttendanceHistoryReport({
+    this.id = 0,
+    this.meetingId = 0,
+    this.meetingTitle = '',
+    this.meetingCode,
+    this.total = 0,
+    this.present = 0,
+    this.absent = 0,
+    this.percent = 0,
+    this.startedAt,
+    this.endedAt,
+    this.generatedAt,
+    this.generatedByName,
+    this.items = const [],
+  });
+
+  final int id;
+  final int meetingId;
+  final String meetingTitle;
+  final String? meetingCode;
+  final int total;
+  final int present;
+  final int absent;
+  final double percent;
+  final DateTime? startedAt;
+  final DateTime? endedAt;
+  final DateTime? generatedAt;
+  final String? generatedByName;
+  final List<AttendanceItem> items;
+
+  factory AttendanceHistoryReport.fromJson(Map<String, dynamic> j) {
+    DateTime? dt(dynamic v) => v == null ? null : DateTime.tryParse(v.toString());
+    int i(dynamic v) => v is num ? v.toInt() : 0;
+    return AttendanceHistoryReport(
+      id: i(j['id']),
+      meetingId: i(j['meeting_id']),
+      meetingTitle: (j['meeting_title'] ?? '').toString(),
+      meetingCode: j['meeting_code']?.toString(),
+      total: i(j['total']),
+      present: i(j['present']),
+      absent: i(j['absent']),
+      percent: j['percent'] is num ? (j['percent'] as num).toDouble() : 0,
+      startedAt: dt(j['started_at']),
+      endedAt: dt(j['ended_at']),
+      generatedAt: dt(j['generated_at']),
+      generatedByName: j['generated_by_name']?.toString(),
+      items: j['items'] is List
+          ? (j['items'] as List)
+              .whereType<Map<String, dynamic>>()
+              .map(AttendanceItem.fromJson)
+              .toList()
+          : const [],
+    );
+  }
+}
 
 @immutable
 class Employee {
@@ -118,9 +195,38 @@ class EmployeesRepository {
   Future<void> delete(int id) async {
     await _dio.delete<dynamic>('/employees/$id');
   }
+
+  /// Uchrashuv kontaktlari (davomatga hodim qo'shishda tanlash uchun).
+  Future<List<MeetingContact>> meetingContacts() async {
+    final res = await _dio.get<Map<String, dynamic>>('/me/meeting-contacts');
+    final list = res.data?['contacts'];
+    return list is List
+        ? list
+            .whereType<Map<String, dynamic>>()
+            .map(MeetingContact.fromJson)
+            .toList()
+        : <MeetingContact>[];
+  }
+
+  /// Davomat hisobotlari tarixi (Davomat menyusi).
+  Future<List<AttendanceHistoryReport>> attendanceHistory() async {
+    final res = await _dio.get<Map<String, dynamic>>('/attendance/history');
+    final list = res.data?['reports'];
+    return list is List
+        ? list
+            .whereType<Map<String, dynamic>>()
+            .map(AttendanceHistoryReport.fromJson)
+            .toList()
+        : <AttendanceHistoryReport>[];
+  }
 }
 
 final employeesProvider =
     FutureProvider.autoDispose<EmployeesResult>((ref) async {
   return EmployeesRepository.instance.list();
+});
+
+final attendanceHistoryProvider =
+    FutureProvider.autoDispose<List<AttendanceHistoryReport>>((ref) async {
+  return EmployeesRepository.instance.attendanceHistory();
 });

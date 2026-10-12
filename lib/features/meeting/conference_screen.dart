@@ -304,7 +304,26 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
   int _page = 0;
 
   bool get _viewOnly => !widget.joinInfo.canPublish;
-  bool get _isHost => widget.joinInfo.isHost;
+
+  // Host egaligi uchrashuv davomida o'tkazilishi mumkin (kind:'host') — join
+  // javobidagi qiymatlar faqat boshlang'ich holat (initState'da o'rnatiladi).
+  String? _hostIdentity;
+  bool _isHost = false;
+
+  /// `room.connect()` hali tugamagan — bu paytda xonani `_connect()` davomi yopadi.
+  bool _connectInFlight = false;
+  bool _micBusy = false;
+  bool _camBusy = false;
+  bool _ending = false;
+
+  // Ma'lumot-kanali cheklovlari (bitta ishtirokchi ro'yxatlarni cheksiz o'stira olmasin).
+  static const _maxMessages = 500;
+  static const _maxChatLen = 2000;
+  static const _maxQuestions = 200;
+  static const _maxQuestionLen = 500;
+  static const _maxPollOptions = 10;
+  static const _maxWbSegs = 20000;
+  static const _maxReactionsOnScreen = 24;
 
   final List<_ChatMsg> _messages = [];
   final List<_FloatReaction> _reactions = [];
@@ -323,10 +342,22 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
 
   // poll
   _Poll? _poll;
+  bool _pollHidden = false; // foydalanuvchi kartani yopdi (qayta ochsa bo'ladi)
+  final Set<String> _pollVoters = <String>{}; // bitta ishtirokchi — bitta ovoz
+  final Map<String, Set<String>> _qaVoters = <String, Set<String>>{};
+  final Set<String> _myQaVotes = <String>{};
 
-  // cloud recording (faqat host)
+  // host: kutish xonasi (waiting room)
+  Timer? _waitTimer;
+  bool _waitBusy = false;
+  List<WaitingPerson> _waitingPeople = const [];
+  void Function()? _waitSheetRefresh;
+
+  // cloud recording — boshqarish faqat hostda; "REC" belgisi HAMMAGA ko'rinadi
+  // (LiveKit xona holatidan: room.isRecording + RoomRecordingStatusChanged).
   bool _recording = false;
   bool _recordingBusy = false;
+  bool get _recActive => _recording || (_room?.isRecording ?? false);
 
   // host mikrofon nazorati
   bool _forceMuted = false; // host meni majburiy o'chirdimi (yoqa olmayman)
@@ -343,6 +374,8 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
     super.initState();
     _micOn = widget.startMic && !_viewOnly;
     _camOn = widget.startCam && !_viewOnly;
+    _hostIdentity = widget.joinInfo.hostIdentity;
+    _isHost = widget.joinInfo.isHost;
     _connect();
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) setState(() {});
@@ -359,87 +392,229 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
       });
       return;
     }
+    if (_connectInFlight) return;
+
+    // Oldingi urinishdan qolgan xona/tinglovchi bo'lsa — avval yopamiz (aks holda
+    // ikkinchi ulanish bir xil identity bilan birinchisini chiqarib yuborardi).
+    final oldRoom = _room;
+    final oldListener = _listener;
+    _room = null;
+    _listener = null;
+    if (oldRoom != null || oldListener != null) {
+      await _teardown(oldRoom, oldListener);
+      if (!mounted || _goneHome) return;
+    }
+
+    final room = Room(
+      roomOptions: const RoomOptions(adaptiveStream: true, dynacast: true),
+    );
+    final listener = room.createListener();
+    // Xona ulanishdan OLDIN saqlanadi: ulanish paytida ekran yopilsa ham quyidagi
+    // tekshiruvlar uni topib uzadi — mikrofon/kamera yoniq "arvoh" ulanish qolmaydi.
+    _room = room;
+    _listener = listener;
+    _bindEvents(room, listener);
+    _connectInFlight = true;
     try {
-      final room = Room(
-        roomOptions: const RoomOptions(adaptiveStream: true, dynacast: true),
-      );
-      _listener = room.createListener();
-      _bindEvents();
       await room.connect(url, token);
-      _room = room;
-      if (!_viewOnly) {
-        await room.localParticipant?.setMicrophoneEnabled(_micOn);
-        await room.localParticipant?.setCameraEnabled(_camOn);
-      }
-      _connectedAt = DateTime.now();
-      if (mounted) setState(() => _connecting = false);
-    } catch (e) {
-      if (mounted) {
+    } catch (_) {
+      _connectInFlight = false;
+      if (identical(_room, room)) _room = null;
+      if (identical(_listener, listener)) _listener = null;
+      await _teardown(room, listener, connected: false);
+      if (mounted && !_goneHome) {
         setState(() {
           _connecting = false;
-          _error = e.toString();
+          // Xom istisno matni KO'RSATILMAYDI — unda LiveKit tokenli URL bo'lishi mumkin.
+          _error = ref.tt('mobile.conf.connectFailed');
         });
       }
+      return;
+    }
+    _connectInFlight = false;
+    if (await _abandoned(room, listener)) return;
+
+    _connectedAt = DateTime.now();
+    _recording = room.isRecording;
+    setState(() => _connecting = false);
+    if (_isHost) _startWaitingPoll();
+
+    if (!_viewOnly) {
+      await _publishInitialTracks(room, listener);
     }
   }
 
-  void _bindEvents() {
-    _listener
-      ?..on<TrackSubscribedEvent>((_) => _refresh())
+  /// Kutish (await) davomida ekran yopilgan / `_goHome` ishlagan / boshqa xonaga
+  /// o'tilgan bo'lsa — shu xonani uzib tashlaydi va `true` qaytaradi.
+  Future<bool> _abandoned(Room room, EventsListener<RoomEvent> listener) async {
+    if (mounted && !_goneHome && identical(_room, room)) return false;
+    if (identical(_room, room)) _room = null;
+    if (identical(_listener, listener)) _listener = null;
+    await _teardown(room, listener);
+    return true;
+  }
+
+  /// Xonani to'liq yopadi: tinglovchi → disconnect (serverga "chiqdim") → dispose.
+  /// Ulanmagan xona uchun [connected] = false (disconnect 10 s kutib qolmasin).
+  Future<void> _teardown(
+    Room? room,
+    EventsListener<RoomEvent>? listener, {
+    bool connected = true,
+  }) async {
+    try {
+      await listener?.dispose();
+    } catch (_) {}
+    if (room == null) return;
+    if (connected) {
+      try {
+        await room.disconnect();
+      } catch (_) {}
+    }
+    try {
+      await room.dispose();
+    } catch (_) {}
+  }
+
+  /// Mikrofon/kamerani yoqish ULANISHDAN ALOHIDA: ruxsat berilmasa yoki qurilma
+  /// bo'lmasa ham xonada qolamiz — tugma o'chiq holatga o'tadi va xabar chiqadi.
+  Future<void> _publishInitialTracks(
+      Room room, EventsListener<RoomEvent> listener) async {
+    final lp = room.localParticipant;
+    if (lp == null) return;
+    if (_micOn) {
+      var ok = true;
+      try {
+        await lp.setMicrophoneEnabled(true);
+      } catch (_) {
+        ok = false;
+      }
+      if (await _abandoned(room, listener)) return;
+      if (!ok) {
+        _micOn = false;
+        _toast(ref.tt('mobile.conf.micFailed'));
+      }
+    }
+    if (_camOn) {
+      var ok = true;
+      try {
+        await lp.setCameraEnabled(true);
+      } catch (_) {
+        ok = false;
+      }
+      if (await _abandoned(room, listener)) return;
+      if (!ok) {
+        _camOn = false;
+        _toast(ref.tt('mobile.conf.camFailed'));
+      }
+    }
+    _refresh();
+  }
+
+  void _bindEvents(Room room, EventsListener<RoomEvent> listener) {
+    listener
+      ..on<TrackSubscribedEvent>((_) => _refresh())
       ..on<TrackUnsubscribedEvent>((_) => _refresh())
       ..on<ParticipantConnectedEvent>((_) => _refresh())
       ..on<ParticipantDisconnectedEvent>((_) => _refresh())
       ..on<LocalTrackPublishedEvent>((_) => _refresh())
       ..on<LocalTrackUnpublishedEvent>((_) => _refresh())
-      ..on<DataReceivedEvent>(_onData)
-      ..on<RoomDisconnectedEvent>((_) {
+      ..on<TrackMutedEvent>(
+          (e) => _syncLocalMute(room, e.participant, e.publication, true))
+      ..on<TrackUnmutedEvent>(
+          (e) => _syncLocalMute(room, e.participant, e.publication, false))
+      ..on<RoomRecordingStatusChanged>((e) {
+        if (!identical(_room, room)) return;
+        _recording = e.activeRecording;
+        _refresh();
+      })
+      ..on<DataReceivedEvent>((e) {
+        if (identical(_room, room)) _onData(e);
+      })
+      ..on<RoomDisconnectedEvent>((e) {
         // My own leave already navigates; an UNEXPECTED disconnect means the host
-        // (any platform) ended the meeting / the server closed the room → send
-        // everyone back to the dashboard.
-        if (_navigatingOut) return;
-        _goHome(ref.tt('mobile.conf.ended'));
+        // ended the meeting, I was removed, or the network dropped → back to the
+        // dashboard with a message that says which one it was.
+        if (_navigatingOut || !identical(_room, room)) return;
+        _goHome(_disconnectMessage(e.reason));
       });
+  }
+
+  /// Tugma holatini LiveKit'dagi haqiqiy holatga moslaydi (masalan host
+  /// mikrofonni server orqali o'chirganda).
+  void _syncLocalMute(
+      Room room, Participant p, TrackPublication pub, bool muted) {
+    if (!identical(_room, room) || p is! LocalParticipant) return;
+    if (pub.source == TrackSource.microphone) {
+      _micOn = !muted;
+    } else if (pub.source == TrackSource.camera) {
+      _camOn = !muted;
+    }
+    _refresh();
+  }
+
+  /// Uzilish sababiga qarab xabar: uchrashuv yakunlandi / chiqarib yuborildingiz /
+  /// boshqa qurilmadan kirildi / aloqa uzildi.
+  String _disconnectMessage(DisconnectReason? reason) {
+    switch (reason) {
+      case DisconnectReason.roomDeleted:
+        return ref.tt('mobile.conf.ended');
+      case DisconnectReason.participantRemoved:
+        return ref.tt('mobile.conf.removed');
+      case DisconnectReason.duplicateIdentity:
+        return ref.tt('mobile.conf.duplicateLogin');
+      default:
+        return ref.tt('mobile.conf.connectionLost');
+    }
   }
 
   // --- data channel --------------------------------------------------------
 
   void _onData(DataReceivedEvent event) {
     try {
-      final m = jsonDecode(utf8.decode(event.data)) as Map<String, dynamic>;
+      final decoded = jsonDecode(utf8.decode(event.data));
+      if (decoded is! Map) return;
+      final m = Map<String, dynamic>.from(decoded);
       final kind = m['kind'];
-      // Boshqaruv xabarlari (mute/end/reactlock) FAQAT haqiqiy hostdan qabul qilinadi.
-      // LiveKit `participant.identity` = server imzolagan identity (spoof qilib bo'lmaydi) →
-      // oddiy ishtirokchi hammani majburan o'chira / chiqara / reaksiyani qulflay olmaydi.
-      const privileged = {'mute', 'end', 'reactlock'};
-      // Fail-closed: a privileged message is accepted ONLY when both the host
-      // identity and the sender identity are known and equal. If either is null
-      // (e.g. host identity unset), drop it rather than accepting it.
-      final hostId = widget.joinInfo.hostIdentity;
-      final sender = event.participant?.identity;
-      if (privileged.contains(kind) &&
-          (hostId == null || sender == null || sender != hostId)) {
+      // Yuboruvchi — FAQAT LiveKit imzolagan ishtirokchi (`event.participant`).
+      // Payload ichidagi `sender` ishonchsiz: uni har kim xohlagancha yozishi mumkin.
+      final from = event.participant;
+      final sender = from?.identity;
+      final senderName = from == null
+          ? null
+          : (from.name.isNotEmpty ? from.name : from.identity);
+      // Boshqaruv xabarlari (mute/end/reactlock/host) FAQAT haqiqiy hostdan qabul qilinadi.
+      // Fail-closed: host identity yoki yuboruvchi noma'lum bo'lsa — tashlab yuboriladi.
+      final hostId = _hostIdentity;
+      final fromHost = hostId != null && sender != null && sender == hostId;
+      const privileged = {'mute', 'end', 'reactlock', 'host'};
+      if (privileged.contains(kind) && !fromHost) {
         return;
       }
       switch (kind) {
         case 'chat':
+          if (senderName == null) break;
+          final body = _clip((m['body'] ?? '').toString(), _maxChatLen);
+          if (body.trim().isEmpty) break;
           setState(() {
-            _messages.add(_ChatMsg(
-              sender: (m['sender'] ?? '?').toString(),
-              body: (m['body'] ?? '').toString(),
-              ts: (m['ts'] is int) ? m['ts'] as int : DateTime.now().millisecondsSinceEpoch,
+            _addMessage(_ChatMsg(
+              sender: senderName,
+              body: body,
+              ts: DateTime.now().millisecondsSinceEpoch,
               self: false,
             ));
             _unread++;
           });
           break;
         case 'reaction':
-          final remoji = (m['emoji'] ?? '👍').toString();
+          if (senderName == null) break;
+          // Host reaksiyalarni yashirgan bo'lsa — faqat hostniki ko'rsatiladi.
+          if (_reactLocked && !fromHost) break;
+          // Faqat ilovaning o'z to'plami: ixtiyoriy matn ekranga chiqarilmaydi.
+          final remoji = m['emoji']?.toString();
+          if (remoji == null || !_emojis.contains(remoji)) break;
           _pushReaction(remoji);
           // (C8) kim yuborgani chatga
-          final rsender = m['sender']?.toString();
-          if (rsender != null && rsender.isNotEmpty) {
-            _logReactionToChat(rsender, remoji);
-          }
+          _logReactionToChat(senderName, remoji);
           break;
         case 'reactlock':
           setState(() => _reactLocked = m['locked'] == true);
@@ -448,46 +623,34 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
               : ref.tt('mobile.conf.reactUnlockedToast'));
           break;
         case 'hand':
-          final sender = m['sender']?.toString();
-          if (sender != null) {
-            setState(() {
-              if (m['raised'] == true) {
-                _handsUp.add(sender);
-              } else {
-                _handsUp.remove(sender);
-              }
-            });
-          }
+          // Kim qo'l ko'targani — imzolangan identity'dan (web `sender` yubormaydi).
+          if (sender == null) break;
+          setState(() {
+            if (m['raised'] == true) {
+              _handsUp.add(sender);
+            } else {
+              _handsUp.remove(sender);
+            }
+          });
           break;
         case 'wb':
-          _onWbData(m);
+          _onWbData(m, fromHost);
           break;
         case 'qa':
-          _onQaData(m);
+          _onQaData(m, sender, senderName, fromHost);
           break;
         case 'poll':
-          _onPollData(m);
+          _onPollData(m, sender, fromHost);
+          break;
+        case 'host':
+          _onHostChanged(m);
           break;
         case 'mute':
           // Host majburiy mikrofon nazorati.
           final target = m['target']?.toString();
           final me = _room?.localParticipant?.identity;
-          final muted = m['muted'] == true;
-          if (target == 'all' || target == me) {
-            setState(() => _forceMuted = muted);
-            if (muted) {
-              if (_micOn) {
-                _micOn = false;
-                _room?.localParticipant?.setMicrophoneEnabled(false);
-              }
-              _toast(ref.tt('mobile.conf.muteByAdmin'));
-            } else {
-              // Host ovozni YOQDI → mikrofon avtomatik yoqiladi va "yoniq" ko'rinadi
-              _micOn = true;
-              _room?.localParticipant?.setMicrophoneEnabled(true);
-              _toast(ref.tt('mobile.conf.unmuteByAdmin'));
-            }
-            if (mounted) setState(() {});
+          if (target == 'all' || (me != null && target == me)) {
+            _applyHostMute(m['muted'] == true);
           }
           break;
         case 'end':
@@ -497,6 +660,64 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
       }
     } catch (_) {
       /* malformed — ignore */
+    }
+  }
+
+  String _clip(String s, int max) => s.length <= max ? s : s.substring(0, max);
+
+  void _addMessage(_ChatMsg msg) {
+    if (_messages.length >= _maxMessages) {
+      _messages.removeRange(0, _messages.length - _maxMessages + 1);
+    }
+    _messages.add(msg);
+  }
+
+  /// Host mikrofonni majburiy o'chirdi / qayta ruxsat berdi. Tugma holati faqat
+  /// LiveKit chaqiruvi muvaffaqiyatli bo'lsa o'zgaradi.
+  Future<void> _applyHostMute(bool muted) async {
+    setState(() => _forceMuted = muted);
+    final lp = _room?.localParticipant;
+    if (muted) {
+      if (_micOn) {
+        _micOn = false;
+        try {
+          await lp?.setMicrophoneEnabled(false);
+        } catch (_) {}
+      }
+      if (mounted) _toast(ref.tt('mobile.conf.muteByAdmin'));
+    } else {
+      // Host ovozni YOQDI → mikrofon avtomatik yoqiladi va "yoniq" ko'rinadi
+      if (!_viewOnly && lp != null) {
+        try {
+          await lp.setMicrophoneEnabled(true);
+          _micOn = true;
+        } catch (_) {
+          _micOn = false;
+        }
+      }
+      if (mounted) _toast(ref.tt('mobile.conf.unmuteByAdmin'));
+    }
+    _refresh();
+  }
+
+  /// Egalik o'tkazildi (xabar joriy hostdan kelgani `_onData`da tekshirilgan):
+  /// yangi host identity'si saqlanadi; men bo'lsam — host boshqaruvi ochiladi,
+  /// avvalgi host esa uni yo'qotadi.
+  void _onHostChanged(Map<String, dynamic> m) {
+    final newHost = m['host']?.toString();
+    if (newHost == null || newHost.isEmpty) return;
+    final me = _room?.localParticipant?.identity;
+    final nowHost = me != null && newHost == me;
+    final wasHost = _isHost;
+    setState(() {
+      _hostIdentity = newHost;
+      _isHost = nowHost;
+    });
+    if (nowHost && !wasHost) {
+      _startWaitingPoll();
+      _toast(ref.tt('conf.toast.youAreHost'));
+    } else if (!nowHost && wasHost) {
+      _stopWaitingPoll();
     }
   }
 
@@ -516,7 +737,7 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
   Future<void> _sendChat(String body) async {
     if (body.trim().isEmpty) return;
     final ts = DateTime.now().millisecondsSinceEpoch;
-    setState(() => _messages.add(_ChatMsg(sender: _myName, body: body.trim(), ts: ts, self: true)));
+    setState(() => _addMessage(_ChatMsg(sender: _myName, body: body.trim(), ts: ts, self: true)));
     await _publish({'kind': 'chat', 'id': ts.toString(), 'sender': _myName, 'body': body.trim(), 'ts': ts});
   }
 
@@ -532,6 +753,8 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
   }
 
   void _pushReaction(String emoji) {
+    // Bir vaqtda ekrandagi animatsiyalar soni cheklangan (reaksiya "toshqini" UI'ni qotirmasin).
+    if (_reactions.length >= _maxReactionsOnScreen) return;
     final r = _FloatReaction(
       '${DateTime.now().microsecondsSinceEpoch}_${_rnd.nextInt(9999)}',
       emoji,
@@ -546,7 +769,7 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
   // (C8) reaksiyani chatga yozish (kim yubordi)
   void _logReactionToChat(String sender, String emoji, {bool self = false}) {
     setState(() {
-      _messages.add(_ChatMsg(
+      _addMessage(_ChatMsg(
         sender: sender,
         body: emoji,
         ts: DateTime.now().millisecondsSinceEpoch,
@@ -589,26 +812,39 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
   String _colorToHex(Color c) =>
       '#${(c.value & 0xFFFFFF).toRadixString(16).padLeft(6, '0')}';
 
-  void _onWbData(Map<String, dynamic> m) {
+  void _onWbData(Map<String, dynamic> m, bool fromHost) {
     if (m['op'] == 'clear') {
+      // Doskani tozalash — faqat host (web klient bilan bir xil qoida).
+      if (!fromHost) return;
       setState(() => _wbSegs.clear());
     } else if (m['op'] == 'stroke') {
-      setState(() => _wbSegs.add(_WbSeg(
-            (m['x0'] as num).toDouble(),
-            (m['y0'] as num).toDouble(),
-            (m['x1'] as num).toDouble(),
-            (m['y1'] as num).toDouble(),
-            _hexToColor((m['color'] ?? '#111827').toString()),
-            (m['width'] as num?)?.toDouble() ?? 3,
-          )));
+      // Koordinatalar 0..1 oralig'ida, qalinlik 1..40 — begona qiymatlar kesiladi.
+      double unit(dynamic v) =>
+          (v as num).toDouble().clamp(0.0, 1.0).toDouble();
+      final seg = _WbSeg(
+        unit(m['x0']),
+        unit(m['y0']),
+        unit(m['x1']),
+        unit(m['y1']),
+        _hexToColor((m['color'] ?? '#111827').toString()),
+        ((m['width'] as num?)?.toDouble() ?? 3.0).clamp(1.0, 40.0).toDouble(),
+      );
+      setState(() => _addWbSeg(seg));
     }
+  }
+
+  void _addWbSeg(_WbSeg seg) {
+    if (_wbSegs.length >= _maxWbSegs) {
+      _wbSegs.removeRange(0, _wbSegs.length - _maxWbSegs + 1);
+    }
+    _wbSegs.add(seg);
   }
 
   void _wbStroke(Offset a, Offset b, Size size) {
     final col = _erasing ? const Color(0xFFFFFFFF) : _wbColor;
     final w = _erasing ? 24.0 : 3.0;
     final seg = _WbSeg(a.dx / size.width, a.dy / size.height, b.dx / size.width, b.dy / size.height, col.value, w);
-    setState(() => _wbSegs.add(seg));
+    setState(() => _addWbSeg(seg));
     _publish({
       'kind': 'wb', 'op': 'stroke',
       'x0': seg.x0, 'y0': seg.y0, 'x1': seg.x1, 'y1': seg.y1,
@@ -617,40 +853,63 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
   }
 
   void _wbClear() {
+    // Faqat host: boshqalar bu xabarni baribir qabul qilmaydi (doskalar ajralib ketardi).
+    if (!_isHost) return;
     setState(() => _wbSegs.clear());
     _publish({'kind': 'wb', 'op': 'clear'});
   }
 
   // --- Q&A ---
-  void _onQaData(Map<String, dynamic> m) {
-    final id = (m['id'] ?? '').toString();
-    setState(() {
-      if (m['op'] == 'ask') {
-        if (!_questions.any((q) => q.id == id)) {
-          _questions.add(_Question(id, (m['sender'] ?? '?').toString(), (m['text'] ?? '').toString(),
-              (m['ts'] is int) ? m['ts'] as int : DateTime.now().millisecondsSinceEpoch));
-        }
+  void _onQaData(Map<String, dynamic> m, String? sender, String? senderName,
+      bool fromHost) {
+    if (sender == null) return;
+    final id = _clip((m['id'] ?? '').toString(), 64);
+    if (id.isEmpty) return;
+    final op = m['op'];
+    if (op == 'ask') {
+      final text =
+          _clip((m['text'] ?? '').toString(), _maxQuestionLen).trim();
+      if (text.isEmpty) return;
+      if (_questions.length >= _maxQuestions) return;
+      if (_questions.any((q) => q.id == id)) return;
+      setState(() {
+        _questions.add(_Question(id, senderName ?? sender, text,
+            DateTime.now().millisecondsSinceEpoch));
         _qnaUnread++;
-      } else if (m['op'] == 'vote') {
+      });
+    } else if (op == 'vote') {
+      if (!_questions.any((q) => q.id == id)) return;
+      // Bitta ishtirokchi — har savolga bitta ovoz.
+      final voters = _qaVoters.putIfAbsent(id, () => <String>{});
+      if (!voters.add(sender)) return;
+      setState(() {
         for (final q in _questions) {
           if (q.id == id) q.votes++;
         }
-      } else if (m['op'] == 'answered') {
+      });
+    } else if (op == 'answered') {
+      // "Javob berildi" belgisi — faqat hostdan.
+      if (!fromHost) return;
+      setState(() {
         for (final q in _questions) {
           if (q.id == id) q.answered = true;
         }
-      }
-    });
+      });
+    }
   }
 
   void _askQuestion(String text) {
     if (text.trim().isEmpty) return;
+    if (_questions.length >= _maxQuestions) return;
     final id = '${DateTime.now().millisecondsSinceEpoch}';
-    setState(() => _questions.add(_Question(id, _myName, text.trim(), DateTime.now().millisecondsSinceEpoch)));
-    _publish({'kind': 'qa', 'op': 'ask', 'id': id, 'sender': _myName, 'text': text.trim(), 'ts': DateTime.now().millisecondsSinceEpoch});
+    final body = _clip(text.trim(), _maxQuestionLen);
+    setState(() => _questions.add(_Question(id, _myName, body, DateTime.now().millisecondsSinceEpoch)));
+    _publish({'kind': 'qa', 'op': 'ask', 'id': id, 'sender': _myName, 'text': body, 'ts': DateTime.now().millisecondsSinceEpoch});
   }
 
   void _voteQuestion(String id) {
+    // Har savolga bir marta ovoz beriladi.
+    if (!_myQaVotes.add(id)) return;
     setState(() {
       for (final q in _questions) {
         if (q.id == id) q.votes++;
@@ -660,6 +919,7 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
   }
 
   void _answerQuestion(String id) {
+    if (!_isHost) return;
     setState(() {
       for (final q in _questions) {
         if (q.id == id) q.answered = true;
@@ -669,30 +929,58 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
   }
 
   // --- poll ---
-  void _onPollData(Map<String, dynamic> m) {
-    setState(() {
-      if (m['op'] == 'open') {
-        final opts = (m['options'] as List?)?.map((e) => e.toString()).toList() ?? <String>[];
-        _poll = _Poll((m['id'] ?? '').toString(), (m['question'] ?? '').toString(), opts,
+  void _onPollData(Map<String, dynamic> m, String? sender, bool fromHost) {
+    final op = m['op'];
+    final id = _clip((m['id'] ?? '').toString(), 64);
+    if (op == 'open') {
+      // So'rovnoma ochish — faqat hostdan.
+      if (!fromHost) return;
+      final raw = m['options'];
+      final opts = raw is List
+          ? raw
+              .take(_maxPollOptions)
+              .map((e) => _clip(e.toString(), 120))
+              .toList()
+          : <String>[];
+      if (opts.length < 2) return;
+      setState(() {
+        _pollVoters.clear();
+        _pollHidden = false;
+        _poll = _Poll(id, _clip((m['question'] ?? '').toString(), 300), opts,
             List<int>.filled(opts.length, 0));
-      } else if (m['op'] == 'vote' && _poll != null && _poll!.id == (m['id'] ?? '').toString()) {
-        final c = (m['choice'] as num?)?.toInt() ?? -1;
-        if (c >= 0 && c < _poll!.counts.length) _poll!.counts[c]++;
-      } else if (m['op'] == 'close' && _poll != null && _poll!.id == (m['id'] ?? '').toString()) {
-        _poll!.closed = true;
-      }
-    });
+      });
+    } else if (op == 'vote') {
+      final p = _poll;
+      if (p == null || p.closed || p.id != id || sender == null) return;
+      // Bitta ishtirokchi — bitta ovoz.
+      if (!_pollVoters.add(sender)) return;
+      final c = (m['choice'] as num?)?.toInt() ?? -1;
+      if (c < 0 || c >= p.counts.length) return;
+      setState(() => p.counts[c]++);
+    } else if (op == 'close') {
+      // So'rovnomani yopish — faqat hostdan.
+      if (!fromHost) return;
+      final p = _poll;
+      if (p == null || p.id != id) return;
+      setState(() => p.closed = true);
+    }
   }
 
   void _createPoll(String question, List<String> options) {
+    if (!_isHost) return;
     final id = '${DateTime.now().millisecondsSinceEpoch}';
-    setState(() => _poll = _Poll(id, question, options, List<int>.filled(options.length, 0)));
+    setState(() {
+      _pollVoters.clear();
+      _pollHidden = false;
+      _poll = _Poll(id, question, options, List<int>.filled(options.length, 0));
+    });
     _publish({'kind': 'poll', 'op': 'open', 'id': id, 'question': question, 'options': options});
   }
 
   void _votePoll(int choice) {
     final p = _poll;
-    if (p == null) return;
+    if (p == null || p.closed || p.myVote != null) return;
+    if (choice < 0 || choice >= p.counts.length) return;
     setState(() {
       p.myVote = choice;
       p.counts[choice]++;
@@ -702,7 +990,7 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
 
   void _closePoll() {
     final p = _poll;
-    if (p == null) return;
+    if (p == null || !_isHost) return;
     setState(() => p.closed = true);
     _publish({'kind': 'poll', 'op': 'close', 'id': p.id});
   }
@@ -727,8 +1015,27 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
       _toast(ref.tt('mobile.conf.micBlockedToast'));
       return;
     }
-    _micOn = !_micOn;
-    await _room?.localParticipant?.setMicrophoneEnabled(_micOn);
+    final lp = _room?.localParticipant;
+    if (lp == null) {
+      // Hali ulanmagan: tanlov saqlanadi va ulangach qo'llanadi.
+      if (_connecting && _error == null) {
+        _micOn = !_micOn;
+        _refresh();
+      }
+      return;
+    }
+    if (_micBusy) return;
+    final next = !_micOn;
+    _micBusy = true;
+    try {
+      await lp.setMicrophoneEnabled(next);
+      _micOn = next;
+    } catch (_) {
+      // Chaqiruv xato berdi — tugma holati O'ZGARMAYDI (soxta "yoniq" ko'rinmasin).
+      if (mounted) _toast(ref.tt('mobile.conf.micFailed'));
+    } finally {
+      _micBusy = false;
+    }
     _refresh();
   }
 
@@ -747,8 +1054,27 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
   }
 
   Future<void> _toggleCam() async {
-    _camOn = !_camOn;
-    await _room?.localParticipant?.setCameraEnabled(_camOn);
+    final lp = _room?.localParticipant;
+    if (lp == null) {
+      // Hali ulanmagan: tanlov saqlanadi va ulangach qo'llanadi.
+      if (_connecting && _error == null) {
+        _camOn = !_camOn;
+        _refresh();
+      }
+      return;
+    }
+    if (_camBusy) return;
+    final next = !_camOn;
+    _camBusy = true;
+    try {
+      await lp.setCameraEnabled(next);
+      _camOn = next;
+    } catch (_) {
+      // Kamera yo'q / ruxsat berilmagan / band — tugma holati o'zgarmaydi.
+      if (mounted) _toast(ref.tt('mobile.conf.camFailed'));
+    } finally {
+      _camBusy = false;
+    }
     _refresh();
   }
 
@@ -811,8 +1137,15 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
   }
 
   Future<void> _leave() async {
+    // Host yozib olayotgan bo'lsa — chiqishdan oldin yozuvni to'xtatamiz
+    // (best-effort; navigatsiyani kutdirmaydi).
+    if (_isHost && _recActive) {
+      unawaited(MeetingRepository.instance
+          .stopRecording(widget.meetingId)
+          .catchError((Object _) {}));
+    }
     // Chiqishda ham DASHBOARDga (maybePop oldingi ekranga — lobby/qo'ng'iroqqa qaytarardi)
-    await _goHome(ref.tt('mobile.conf.ended'));
+    await _goHome(ref.tt('conf.left'));
   }
 
   /// Red "end call" button. The host is offered a choice (leave vs end for all);
@@ -872,72 +1205,134 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
     );
   }
 
-  /// Host ends the meeting for everyone: broadcast the signal + close the room.
+  /// Host ends the meeting for everyone. The SERVER call comes first: only when
+  /// it succeeds do we tell the others and leave — a failed call is reported
+  /// instead of pretending the meeting ended.
   Future<void> _endForAll() async {
-    _navigatingOut = true;
-    await _publish({'kind': 'end'});
+    if (_ending || _goneHome) return;
+    _ending = true;
     try {
-      await MeetingRepository.instance.endMeeting(widget.meetingId);
-    } catch (_) {}
-    await _goHome(ref.tt('mobile.conf.ended'));
+      // Yozib olinayotgan bo'lsa — avval yozuvni yopamiz (best-effort).
+      if (_recActive) {
+        try {
+          await MeetingRepository.instance.stopRecording(widget.meetingId);
+        } catch (_) {}
+      }
+      try {
+        await MeetingRepository.instance.endMeeting(widget.meetingId);
+      } catch (_) {
+        if (mounted && !_goneHome) _toast(ref.tt('mobile.conf.endFailed'));
+        return;
+      }
+      // Server xonani o'chirdi → hamma uziladi (bizga ham RoomDisconnected kelishi
+      // mumkin — `_goHome` bir marta ishlaydi).
+      if (!mounted || _goneHome) return;
+      // Xona hali tirik qolgan bo'lsa (LiveKit javob bermagan holat) — signal ham
+      // yuboramiz; qisqa kutish bilan, navigatsiyani ushlab qolmaydi.
+      try {
+        await _publish({'kind': 'end'}).timeout(const Duration(seconds: 2));
+      } catch (_) {}
+      if (!mounted || _goneHome) return;
+      await _goHome(ref.tt('mobile.conf.ended'));
+    } finally {
+      _ending = false;
+    }
   }
 
-  /// Disconnect and send the user back to the dashboard (idempotent).
+  /// Send the user back to the dashboard (idempotent). Navigation happens
+  /// FIRST; the room is disconnected in the background, so a slow network never
+  /// keeps the user on a dead conference screen.
   Future<void> _goHome(String msg) async {
     if (_goneHome) return;
     _goneHome = true;
     _navigatingOut = true;
-    try {
-      await _room?.disconnect();
-    } catch (_) {}
-    if (!mounted) return;
-    // ConferenceScreen lobby USTIGA Navigator.push(MaterialPageRoute) bilan ochiladi (imperativ route).
-    // BUG edi: popUntil(isFirst) bu route'ni yopib, ConferenceScreen context'ini DISPOSE qilardi → keyingi
-    // `context.go('/home')` o'lik context'da ishlamasdi → foydalanuvchi lobbyда qolardi.
-    // TO'G'RI: router+messenger'ni POP'dan OLDIN olib, imperativ route'ni pop qilamiz, keyin router orqali /home.
-    final router = GoRouter.of(context);
-    final messenger = ScaffoldMessenger.of(context);
-    final nav = Navigator.of(context);
-    if (nav.canPop()) nav.pop(); // ConferenceScreen → lobby (GoRoute page)
-    router.go('/home');          // lobby → dashboard (stale context'ga tayanmaydi)
-    messenger
-      ..clearSnackBars()
-      ..showSnackBar(SnackBar(content: Text(msg), duration: const Duration(seconds: 2)));
+    _waitTimer?.cancel();
+    _waitTimer = null;
+    final room = _room;
+    final listener = _listener;
+    _room = null;
+    _listener = null;
+    final inFlight = _connectInFlight;
+
+    // Serverga "chiqdim" (davomat daqiqalari + tarif sig'imi) — best-effort.
+    unawaited(MeetingRepository.instance
+        .leave(widget.meetingId)
+        .catchError((Object _) {}));
+    // Android: ekran ulashish foreground-servisi chiqqandan keyin ishlab qolmasin.
+    if (_sharing && lkPlatformIs(PlatformType.android)) {
+      _sharing = false;
+      unawaited(
+          _shareCh.invokeMethod<void>('stop').catchError((Object _) {}));
+    }
+
+    if (mounted) {
+      // ConferenceScreen lobby USTIGA Navigator.push(MaterialPageRoute) bilan ochiladi (imperativ route).
+      // router+messenger'ni POP'dan OLDIN olib, imperativ route'ni pop qilamiz, keyin router orqali /home
+      // (pop'dan keyin bu ekranning context'i o'lik bo'ladi).
+      final router = GoRouter.of(context);
+      final messenger = ScaffoldMessenger.of(context);
+      final nav = Navigator.of(context);
+      if (nav.canPop()) nav.pop(); // ConferenceScreen → lobby (GoRoute page)
+      router.go('/home');          // lobby → dashboard (stale context'ga tayanmaydi)
+      messenger
+        ..clearSnackBars()
+        ..showSnackBar(SnackBar(content: Text(msg), duration: const Duration(seconds: 2)));
+    }
+
+    // Uzish — fon rejimida. Ulanish hali tugamagan bo'lsa xonani `_connect()`
+    // davomi yopadi (bu yerda faqat tinglovchi uziladi).
+    if (inFlight) {
+      try {
+        await listener?.dispose();
+      } catch (_) {}
+    } else {
+      await _teardown(room, listener);
+    }
   }
 
   /// Host-only: count attendance (roster employees vs joiners) and show the
   /// report. Web parity of Conference `runAttendance` (/app conference).
   Future<void> _runAttendance() async {
     // Lightweight loading overlay while the report is generated server-side.
+    // PopScope: "orqaga" yuklagichni yopa olmaydi; yopish faqat O'Z context'i
+    // orqali — aks holda pop() konferensiya ekranining o'zini yopib yuborardi.
+    BuildContext? loaderCtx;
     showDialog<void>(
       context: context,
       barrierDismissible: false,
-      builder: (_) => Dialog(
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 18),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.5,
-                  valueColor:
-                      AlwaysStoppedAnimation<Color>(AppColors.brand600),
-                ),
+      builder: (ctx) {
+        loaderCtx = ctx;
+        return PopScope(
+          canPop: false,
+          child: Dialog(
+            backgroundColor: Colors.white,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 18),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      valueColor:
+                          AlwaysStoppedAnimation<Color>(AppColors.brand600),
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Text(ref.tt('conf.att.counting'),
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.slate700)),
+                ],
               ),
-              const SizedBox(width: 14),
-              Text(ref.tt('conf.att.counting'),
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.slate700)),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
 
     AttendanceReport? rep;
@@ -946,8 +1341,9 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
     } catch (_) {
       rep = null;
     }
-    if (!mounted) return;
-    if (Navigator.of(context).canPop()) Navigator.of(context).pop(); // close loader
+    if (!mounted || _goneHome) return;
+    final lc = loaderCtx;
+    if (lc != null && lc.mounted) Navigator.of(lc).pop(); // close loader
     if (rep == null) {
       _toast(ref.tt('conf.toast.attendanceFailed'));
       return;
@@ -1240,9 +1636,26 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
   @override
   void dispose() {
     _ticker?.cancel();
+    _waitTimer?.cancel();
     _pageCtrl.dispose();
-    _listener?.dispose();
-    _room?.dispose();
+    final room = _room;
+    final listener = _listener;
+    _room = null;
+    _listener = null;
+    if (!_goneHome) {
+      // Ekran `_goHome`siz yopildi (masalan sessiya tugab, router boshqa sahifaga
+      // o'tdi) — baribir serverga "chiqdim" deymiz va xonani uzamiz.
+      _goneHome = true;
+      unawaited(MeetingRepository.instance
+          .leave(widget.meetingId)
+          .catchError((Object _) {}));
+    }
+    if (_connectInFlight) {
+      // Ulanish tugagach xonani `_connect()` davomi yopadi.
+      unawaited(listener?.dispose());
+    } else {
+      unawaited(_teardown(room, listener));
+    }
     super.dispose();
   }
 
@@ -1267,7 +1680,10 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
                 children: [
                   _body(),
                   if (_boardOpen) Positioned.fill(child: _whiteboard()),
-                  if (_poll != null) Positioned(right: 8, top: 8, child: _pollCard()),
+                  if (_poll != null && !_pollHidden)
+                    Positioned(right: 8, top: 8, child: _pollCard()),
+                  if (_isHost && _waitingPeople.isNotEmpty)
+                    Positioned(left: 8, top: 8, child: _waitingChip()),
                   _reactionsOverlay(),
                 ],
               ),
@@ -1334,7 +1750,7 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
               ],
             ),
           ),
-          if (_recording) ...[
+          if (_recActive) ...[
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
@@ -1921,7 +2337,8 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
                   onPressed: () => setState(() => _erasing = !_erasing),
                 ),
                 const Spacer(),
-                TextButton(onPressed: _wbClear, child: Text(ref.t('mobile.conf.wbClear'), style: const TextStyle(color: Colors.redAccent))),
+                if (_isHost)
+                  TextButton(onPressed: _wbClear, child: Text(ref.t('mobile.conf.wbClear'), style: const TextStyle(color: Colors.redAccent))),
                 IconButton(
                   icon: const Icon(Icons.close, color: Colors.white, size: 20),
                   tooltip: 'Doskani yopish',
@@ -2005,6 +2422,15 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
                             color: Colors.white70, fontSize: 11),
                       ),
                     ],
+                  ),
+                ),
+                // Kartani yashirish (video ustini to'sib turmasin) — "Yana" menyusidan qayta ochiladi.
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => setState(() => _pollHidden = true),
+                  child: const Padding(
+                    padding: EdgeInsets.only(left: 8, top: 2, bottom: 2),
+                    child: Icon(Icons.close, size: 18, color: Colors.white),
                   ),
                 ),
               ],
@@ -2239,7 +2665,7 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
 
   Future<void> _toggleRecording() async {
     if (_recordingBusy) return;
-    final wasRecording = _recording;
+    final wasRecording = _recActive;
     setState(() {
       _recordingBusy = true;
       _recording = !wasRecording;
@@ -2283,9 +2709,10 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
 
   // ── Qurilma sozlamalari: mikrofon / kamera tanlash + old-orqa almashtirish ──
   LocalVideoTrack? _cameraTrack() {
-    final pubs = _room?.localParticipant?.videoTrackPublications;
-    if (pubs == null || pubs.isEmpty) return null;
-    final t = pubs.first.track;
+    // Aynan KAMERA publikatsiyasi (birinchi video trek ekran ulashish bo'lishi mumkin).
+    final pub = _room?.localParticipant
+        ?.getTrackPublicationBySource(TrackSource.camera);
+    final t = pub?.track;
     return t is LocalVideoTrack ? t : null;
   }
 
@@ -2297,7 +2724,7 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
       await tr.setCameraPosition(_frontCam ? CameraPosition.front : CameraPosition.back);
     } catch (_) {
       // Ba'zi qurilmada faqat bitta kamera — qaytaramiz
-      setState(() => _frontCam = !_frontCam);
+      if (mounted) setState(() => _frontCam = !_frontCam);
     }
   }
 
@@ -2392,12 +2819,15 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.white,
+      // Host uchun bandlar ko'p — kichik ekranda sig'ishi uchun aylantiriladigan.
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (ctx) => SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-          child: Column(
+          child: SingleChildScrollView(
+            child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -2446,6 +2876,11 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
                 Navigator.pop(ctx);
                 _openQna();
               }),
+              if (_poll != null && _pollHidden)
+                _sheetTile(Icons.bar_chart, ref.tt('mobile.conf.pollShow'), () {
+                  Navigator.pop(ctx);
+                  setState(() => _pollHidden = false);
+                }),
               if (_isHost)
                 _sheetTile(Icons.bar_chart, ref.tt('mobile.conf.poll'), () {
                   Navigator.pop(ctx);
@@ -2453,15 +2888,26 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
                 }),
               if (_isHost)
                 _sheetTile(
-                  _recording
+                  Icons.hourglass_top,
+                  ref.tt('conf.waiting.requesting',
+                      {'n': '${_waitingPeople.length}'}),
+                  () {
+                    Navigator.pop(ctx);
+                    _openWaiting();
+                  },
+                  active: _waitingPeople.isNotEmpty,
+                ),
+              if (_isHost)
+                _sheetTile(
+                  _recActive
                       ? Icons.stop_circle_outlined
                       : Icons.fiber_manual_record,
-                  _recording ? ref.tt('mobile.conf.recordStop') : ref.tt('mobile.conf.recordCloud'),
+                  _recActive ? ref.tt('mobile.conf.recordStop') : ref.tt('mobile.conf.recordCloud'),
                   () {
                     Navigator.pop(ctx);
                     _toggleRecording();
                   },
-                  active: _recording,
+                  active: _recActive,
                 ),
               if (_isHost)
                 _sheetTile(
@@ -2505,6 +2951,7 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
                 _openDeviceSettings();
               }),
             ],
+            ),
           ),
         ),
       ),
@@ -2642,6 +3089,192 @@ class _ConferenceScreenState extends ConsumerState<ConferenceScreen> {
         );
       },
     );
+  }
+
+  // ── Host: kutish xonasi (waiting room) ──────────────────────────────────
+  // Boshqaruv ekranidagi bilan bir xil API: GET /meetings/{id}/waiting va
+  // POST /meetings/{id}/admit {participant_id, decision}.
+
+  void _startWaitingPoll() {
+    if (_waitTimer != null || _goneHome || !mounted) return;
+    _waitTimer =
+        Timer.periodic(const Duration(seconds: 5), (_) => _pollWaiting());
+    _pollWaiting();
+  }
+
+  void _stopWaitingPoll() {
+    _waitTimer?.cancel();
+    _waitTimer = null;
+    if (_waitingPeople.isNotEmpty && mounted) {
+      setState(() => _waitingPeople = const []);
+      _waitSheetRefresh?.call();
+    }
+  }
+
+  Future<void> _pollWaiting() async {
+    if (!mounted || _goneHome || !_isHost || _waitBusy) return;
+    _waitBusy = true;
+    try {
+      final list = await MeetingRepository.instance.waiting(widget.meetingId);
+      if (!mounted || _goneHome || !_isHost) return;
+      final known = _waitingPeople.map((p) => p.id).toSet();
+      final fresh = list.where((p) => !known.contains(p.id)).toList();
+      if (fresh.isNotEmpty || list.length != _waitingPeople.length) {
+        setState(() => _waitingPeople = list);
+        _waitSheetRefresh?.call();
+      }
+      if (fresh.isNotEmpty) {
+        _toast(ref.tt('mobile.conf.waitingRequest', {'name': fresh.first.name}));
+      }
+    } catch (_) {
+      // best-effort — keyingi tekshiruvda qayta uriniladi
+    } finally {
+      _waitBusy = false;
+    }
+  }
+
+  Future<void> _decideWaiting(WaitingPerson p, String decision) async {
+    try {
+      await MeetingRepository.instance
+          .admit(widget.meetingId, participantId: p.id, decision: decision);
+      if (!mounted) return;
+      setState(() => _waitingPeople =
+          _waitingPeople.where((w) => w.id != p.id).toList());
+    } catch (_) {
+      if (mounted) _toast(ref.tt('common.error'));
+    }
+    _waitSheetRefresh?.call();
+  }
+
+  Widget _waitingChip() {
+    return Material(
+      color: const Color(0xFFFEF3C7),
+      elevation: 2,
+      borderRadius: BorderRadius.circular(999),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(999),
+        onTap: _openWaiting,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.hourglass_top,
+                  size: 16, color: Color(0xFFB45309)),
+              const SizedBox(width: 6),
+              Text(
+                ref.t('conf.waiting.requesting',
+                    {'n': '${_waitingPeople.length}'}),
+                style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFFB45309)),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _openWaiting() {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => StatefulBuilder(
+        builder: (sheetCtx, setSheet) {
+          _waitSheetRefresh = () {
+            if (sheetCtx.mounted) setSheet(() {});
+          };
+          final rows = _waitingPeople;
+          return SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Center(
+                    child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                            color: AppColors.slate200,
+                            borderRadius: BorderRadius.circular(2))),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                      ref.tt('conf.waiting.requesting',
+                          {'n': '${rows.length}'}),
+                      style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.slate900)),
+                  const SizedBox(height: 8),
+                  if (rows.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 18),
+                      child: Center(
+                        child: Text(ref.tt('mobile.manage.waitingEmpty'),
+                            style:
+                                const TextStyle(color: AppColors.slate400)),
+                      ),
+                    )
+                  else
+                    Flexible(
+                      child: ListView(
+                        shrinkWrap: true,
+                        children: [
+                          for (final p in rows)
+                            ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              leading: CircleAvatar(
+                                backgroundColor: _avatarColor(p.name),
+                                child: Text(_initials(p.name),
+                                    style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 14)),
+                              ),
+                              title: Text(p.name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w500)),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  TextButton(
+                                    onPressed: () => _decideWaiting(p, 'deny'),
+                                    style: TextButton.styleFrom(
+                                        foregroundColor: AppColors.danger),
+                                    child:
+                                        Text(ref.tt('mobile.action.deny')),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  FilledButton(
+                                    onPressed: () =>
+                                        _decideWaiting(p, 'admit'),
+                                    style: FilledButton.styleFrom(
+                                        backgroundColor: AppColors.brand600),
+                                    child:
+                                        Text(ref.tt('mobile.action.admit')),
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    ).whenComplete(() => _waitSheetRefresh = null);
   }
 
   void _showReactions() {

@@ -201,7 +201,7 @@ class _WebinarRegistrationScreenState
                     size: 16, color: Colors.white.withOpacity(0.9)),
                 const SizedBox(width: 6),
                 Text(
-                  DateFormat('d-MMM, HH:mm').format(info.scheduledAt!),
+                  DateFormat('d-MMM, HH:mm').format(info.scheduledAt!.toLocal()),
                   style: TextStyle(
                     color: Colors.white.withOpacity(0.95),
                     fontSize: 14,

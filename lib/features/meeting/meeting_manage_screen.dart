@@ -68,7 +68,13 @@ class _MeetingManageScreenState extends ConsumerState<MeetingManageScreen> {
 
   String get _id => widget.meetingId;
 
-  String get _inviteLink => '${AppConfig.webOrigin}/m/$_id/lobby';
+  /// Taklif havolasi uchrashuv KODI bilan (ketma-ket raqamli id emas). Kod hali
+  /// yuklanmagan bo'lsa — marshrutdagi qiymat.
+  String get _inviteLink {
+    final code = _meeting?.code;
+    final key = (code != null && code.isNotEmpty) ? code : _id;
+    return '${AppConfig.webOrigin}/m/$key/lobby';
+  }
 
   static const _durations = <int>[15, 30, 45, 60, 120, 180, 360, 720, 1440, 0];
 

@@ -11,9 +11,24 @@ import 'package:google_sign_in/google_sign_in.dart';
 
 import '../../core/config/app_config.dart';
 import '../../core/network/dio_client.dart';
+import '../../core/services/push_service.dart';
 import '../../core/storage/secure_store.dart';
 
 enum AuthStatus { unknown, authenticated, unauthenticated }
+
+/// `google_sign_in` has no Linux/Windows implementation — on those platforms
+/// the Google button is hidden instead of always failing.
+bool get googleSignInAvailable {
+  if (kIsWeb) return true;
+  switch (defaultTargetPlatform) {
+    case TargetPlatform.android:
+    case TargetPlatform.iOS:
+    case TargetPlatform.macOS:
+      return true;
+    default:
+      return false;
+  }
+}
 
 @immutable
 class AuthUser {
@@ -154,6 +169,10 @@ class AuthController extends StateNotifier<AuthState> {
   }
 
   Future<void> loginWithGoogle() async {
+    if (!googleSignInAvailable) {
+      state = state.copyWith(busy: false, error: 'mobile.auth.error.google');
+      return;
+    }
     state = state.copyWith(busy: true, clearError: true);
     try {
       final account = await _google.signIn();
@@ -162,15 +181,15 @@ class AuthController extends StateNotifier<AuthState> {
         return;
       }
       final gauth = await account.authentication;
+      final idToken = gauth.idToken;
+      if (idToken == null || idToken.isEmpty) {
+        state = state.copyWith(busy: false, error: 'mobile.auth.error.google');
+        return;
+      }
+      // Server faqat id_token'ni tekshiradi — Google access_token/profil yuborilmaydi.
       final res = await _dio.post<Map<String, dynamic>>(
         '/auth/google',
-        data: {
-          'id_token': gauth.idToken,
-          'access_token': gauth.accessToken,
-          'email': account.email,
-          'name': account.displayName,
-          'avatar': account.photoUrl,
-        },
+        data: {'id_token': idToken},
       );
       await _persistSession(res.data);
     } on DioException catch (e) {
@@ -202,9 +221,32 @@ class AuthController extends StateNotifier<AuthState> {
     state = state.copyWith(status: AuthStatus.authenticated, user: user);
   }
 
+  /// Store the tokens the server issued for THIS session (e.g. after a password
+  /// change, which revokes every other session).
+  Future<void> adoptSession({
+    required String access,
+    required String refresh,
+  }) async {
+    await _store.saveTokens(access: access, refresh: refresh);
+  }
+
   Future<void> logout() async {
+    // 1) Push: shu qurilma tokenini serverdan olib tashlaymiz (access token hali bor
+    //    paytda) — chiqqan akkauntga bildirishnoma kelmasin. Best-effort.
     try {
-      await _dio.post<dynamic>('/auth/logout');
+      await PushService.instance
+          .unregisterToken()
+          .timeout(const Duration(seconds: 6));
+    } catch (_) {}
+    // 2) Refresh tokenni serverda bekor qilamiz (lokal o'chirish yetarli emas).
+    try {
+      final refresh = await _store.refreshToken;
+      await _dio.post<dynamic>(
+        '/auth/logout',
+        data: {
+          if (refresh != null && refresh.isNotEmpty) 'refresh_token': refresh,
+        },
+      ).timeout(const Duration(seconds: 8));
     } catch (_) {
       // ignore network errors on logout
     }

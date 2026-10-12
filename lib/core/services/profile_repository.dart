@@ -72,18 +72,29 @@ class ProfileRepository {
     return _user(res);
   }
 
-  /// PATCH /me/password → {ok}. Throws DioException on failure (message in body).
-  Future<void> changePassword({
+  /// PATCH /me/password → {ok, access_token, refresh_token}. The server revokes
+  /// every OTHER session and returns fresh tokens for the current one; the
+  /// caller must store them. Returns nulls when the server sent no tokens
+  /// (then the current session is gone too). Throws DioException on failure.
+  Future<({String? access, String? refresh})> changePassword({
     String? currentPassword,
     required String newPassword,
     required String confirm,
   }) async {
-    await _dio.patch<dynamic>('/me/password', data: {
+    final res = await _dio.patch<dynamic>('/me/password', data: {
       if (currentPassword != null && currentPassword.isNotEmpty)
         'current_password': currentPassword,
       'new_password': newPassword,
       'new_password_confirmation': confirm,
     });
+    final data = res.data;
+    String? pick(String key) {
+      if (data is! Map) return null;
+      final v = data[key];
+      return (v is String && v.isNotEmpty) ? v : null;
+    }
+
+    return (access: pick('access_token'), refresh: pick('refresh_token'));
   }
 
   Future<List<AccountSession>> sessions() async {

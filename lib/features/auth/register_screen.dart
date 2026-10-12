@@ -115,17 +115,19 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                 style: const TextStyle(fontSize: 14, color: AppColors.slate500)),
                           ),
                           const SizedBox(height: 22),
-                          RevealUp(
-                            delayMs: 140,
-                            child: GhostButton(
-                              label: ref.t('mobile.register.googleSignup'),
-                              leading: const GoogleMark(),
-                              onPressed: auth.busy ? null : () => ref.read(authProvider.notifier).loginWithGoogle(),
+                          if (googleSignInAvailable) ...[
+                            RevealUp(
+                              delayMs: 140,
+                              child: GhostButton(
+                                label: ref.t('mobile.register.googleSignup'),
+                                leading: const GoogleMark(),
+                                onPressed: auth.busy ? null : () => ref.read(authProvider.notifier).loginWithGoogle(),
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 16),
-                          _OrDivider(ref: ref),
-                          const SizedBox(height: 16),
+                            const SizedBox(height: 16),
+                            _OrDivider(ref: ref),
+                            const SizedBox(height: 16),
+                          ],
                           RevealUp(
                             delayMs: 180,
                             child: AloqaInput(

@@ -15,18 +15,18 @@ class AppConfig {
   static String get apiBaseUrl {
     const override = String.fromEnvironment('ALOQA_API_BASE');
     if (override.isNotEmpty) return override;
-    return 'https://api.aloqa.ucms.uz/api/v1';
+    return 'https://aloqaapi.ucms.uz/api/v1';
   }
 
   /// LiveKit SFU websocket URL (prod: rtc.aloqa.ucms.uz). Override with:
   ///   --dart-define=ALOQA_LIVEKIT_URL=wss://rtc.aloqa.ucms.uz
   static const String livekitUrl =
-      String.fromEnvironment('ALOQA_LIVEKIT_URL', defaultValue: 'wss://rtc.aloqa.ucms.uz');
+      String.fromEnvironment('ALOQA_LIVEKIT_URL', defaultValue: 'wss://aloqartc.ucms.uz');
 
   /// Realtime signaling (Laravel Reverb / WS). Override with:
   ///   --dart-define=ALOQA_WS_URL=wss://api.aloqa.ucms.uz/ws
   static const String wsUrl =
-      String.fromEnvironment('ALOQA_WS_URL', defaultValue: 'wss://api.aloqa.ucms.uz/ws');
+      String.fromEnvironment('ALOQA_WS_URL', defaultValue: 'wss://aloqaapi.ucms.uz/ws');
 
   /// Google Sign-In server client id (web/backend OAuth client). Optional on
   /// mobile (uses google-services.json / GoogleService-Info.plist). Override:

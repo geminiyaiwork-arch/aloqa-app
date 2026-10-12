@@ -177,12 +177,28 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
 
     setState(() => _savingPassword = true);
+    // Notifier kutishdan OLDIN olinadi: javob kelganda ekran yopilgan bo'lsa ham
+    // server bergan yangi tokenlar albatta saqlanadi.
+    final authCtl = ref.read(authProvider.notifier);
     try {
-      await ProfileRepository.instance.changePassword(
+      final tokens = await ProfileRepository.instance.changePassword(
         currentPassword: _hasPassword ? cur : null,
         newPassword: next,
         confirm: confirm,
       );
+      final newAccess = tokens.access;
+      final newRefresh = tokens.refresh;
+      if (newAccess != null && newRefresh != null) {
+        // Server boshqa sessiyalarni bekor qildi va SHU sessiya uchun yangi token berdi.
+        await authCtl.adoptSession(access: newAccess, refresh: newRefresh);
+      } else {
+        // Token qaytmadi → joriy sessiya ham bekor bo'lgan: jim chiqib ketish o'rniga
+        // ochiq aytamiz va qayta kirishga yo'naltiramiz.
+        if (mounted) _snack(ref.tt('mobile.settings.passwordRelogin'));
+        await authCtl.logout();
+        if (mounted) context.go('/login');
+        return;
+      }
       if (!mounted) return;
       _currentPw.clear();
       _newPw.clear();

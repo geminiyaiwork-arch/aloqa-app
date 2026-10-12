@@ -77,17 +77,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             style: const TextStyle(fontSize: 14, color: AppColors.slate500)),
                       ),
                       const SizedBox(height: 24),
-                      RevealUp(
-                        delayMs: 140,
-                        child: GhostButton(
-                          label: ref.t('auth.google'),
-                          leading: const GoogleMark(),
-                          onPressed: auth.busy ? null : () => ref.read(authProvider.notifier).loginWithGoogle(),
+                      if (googleSignInAvailable) ...[
+                        RevealUp(
+                          delayMs: 140,
+                          child: GhostButton(
+                            label: ref.t('auth.google'),
+                            leading: const GoogleMark(),
+                            onPressed: auth.busy ? null : () => ref.read(authProvider.notifier).loginWithGoogle(),
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 16),
-                      const _OrDivider(),
-                      const SizedBox(height: 16),
+                        const SizedBox(height: 16),
+                        const _OrDivider(),
+                        const SizedBox(height: 16),
+                      ],
                       RevealUp(
                         delayMs: 180,
                         child: AloqaInput(

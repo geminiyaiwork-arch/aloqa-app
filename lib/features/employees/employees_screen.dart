@@ -1152,10 +1152,12 @@ class _EmptyRoster extends ConsumerWidget {
 
 String _fmtDt(DateTime? d) {
   if (d == null) return '—';
+  // Server vaqti UTC/offset bilan keladi — foydalanuvchining MAHALLIY vaqtida ko'rsatamiz.
+  final l = d.toLocal();
   const m = ['yan', 'fev', 'mar', 'apr', 'may', 'iyn', 'iyl', 'avg', 'sen', 'okt', 'noy', 'dek'];
-  final hh = d.hour.toString().padLeft(2, '0');
-  final mm = d.minute.toString().padLeft(2, '0');
-  return '${d.day}-${m[(d.month - 1).clamp(0, 11)]}, $hh:$mm';
+  final hh = l.hour.toString().padLeft(2, '0');
+  final mm = l.minute.toString().padLeft(2, '0');
+  return '${l.day}-${m[(l.month - 1).clamp(0, 11)]}, $hh:$mm';
 }
 
 /// Davomat hisobotlari ro'yxati (Davomat menyusi "Hisobotlar" tab) + Batafsil.
@@ -1169,6 +1171,7 @@ class _ReportsView extends ConsumerStatefulWidget {
 class _ReportsViewState extends ConsumerState<_ReportsView> {
   AttendanceHistoryResult? _data;
   bool _loading = true;
+  bool _failed = false; // oxirgi yuklash xato bilan tugadi (jim o'tkazilmaydi)
   int _page = 1;
   DateTime? _from;
   DateTime? _to;
@@ -1184,7 +1187,10 @@ class _ReportsViewState extends ConsumerState<_ReportsView> {
       : '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
   Future<void> _load([int? page]) async {
-    setState(() => _loading = true);
+    setState(() {
+      _loading = true;
+      _failed = false;
+    });
     try {
       final res = await EmployeesRepository.instance.attendanceHistory(
           page: page ?? _page, perPage: 20, from: _ymd(_from), to: _ymd(_to));
@@ -1196,23 +1202,35 @@ class _ReportsViewState extends ConsumerState<_ReportsView> {
       });
     } catch (_) {
       if (!mounted) return;
-      setState(() => _loading = false);
+      // Xato yashirilmaydi: "tarix yo'q" o'rniga xato holati + qayta urinish chiqadi.
+      setState(() {
+        _loading = false;
+        _failed = true;
+      });
     }
   }
 
   Future<void> _countSession(int sessionId) async {
     try {
       await EmployeesRepository.instance.sessionAttendance(sessionId);
-    } catch (_) {}
-    await _load(_page);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+              SnackBar(content: Text(ref.tt('conf.toast.attendanceFailed'))));
+      }
+    }
+    if (mounted) await _load(_page);
   }
 
   Future<void> _pickDate(bool isFrom) async {
+    final now = DateTime.now();
     final picked = await showDatePicker(
       context: context,
-      initialDate: (isFrom ? _from : _to) ?? DateTime(2026, 6, 30),
+      initialDate: (isFrom ? _from : _to) ?? now,
       firstDate: DateTime(2024),
-      lastDate: DateTime(2030),
+      lastDate: DateTime(now.year + 1, 12, 31),
     );
     if (picked != null) {
       setState(() {
@@ -1281,6 +1299,27 @@ class _ReportsViewState extends ConsumerState<_ReportsView> {
         Expanded(
           child: _loading
               ? const Center(child: CircularProgressIndicator(color: AppColors.brand600))
+              : _failed
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(32),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(ref.t('mobile.billing.loadError'),
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(color: AppColors.slate500)),
+                            const SizedBox(height: 12),
+                            FilledButton(
+                              onPressed: () => _load(_page),
+                              style: FilledButton.styleFrom(
+                                  backgroundColor: AppColors.brand600),
+                              child: Text(ref.t('action.retry')),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
               : (d == null || d.reports.isEmpty)
                   ? const Center(
                       child: Padding(

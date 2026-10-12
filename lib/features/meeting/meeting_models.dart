@@ -20,6 +20,8 @@ class Meeting {
     this.type,
     this.participantsCount,
     this.settings,
+    this.hasPassword = false,
+    this.waitingRoomFlag = false,
   });
 
   final String id;
@@ -34,7 +36,12 @@ class Meeting {
   final int? participantsCount;
   final Map<String, dynamic>? settings;
 
-  bool get waitingRoom => settings?['waiting_room'] == true;
+  /// Non-member payload of GET /meetings/{id}: `has_password` / `waiting_room`.
+  final bool hasPassword;
+  final bool waitingRoomFlag;
+
+  bool get waitingRoom =>
+      settings?['waiting_room'] == true || waitingRoomFlag;
 
   factory Meeting.fromJson(Map<String, dynamic> j) => Meeting(
         id: (j['id'] ?? '').toString(),
@@ -56,6 +63,8 @@ class Meeting {
         settings: j['settings'] is Map
             ? Map<String, dynamic>.from(j['settings'] as Map)
             : null,
+        hasPassword: j['has_password'] == true,
+        waitingRoomFlag: j['waiting_room'] == true,
       );
 }
 
@@ -175,6 +184,8 @@ class JoinInfo {
     this.isHost = false,
     this.canPublish = true,
     this.hostIdentity,
+    this.waiting = false,
+    this.participantId,
   });
 
   final String roomName;
@@ -184,6 +195,11 @@ class JoinInfo {
   final bool canPublish; // webinar attendee → false (faqat ko'rish)
   final String? hostIdentity; // serverdan: haqiqiy host identity (boshqaruv xabarlari faqat shundan)
 
+  /// Kutish xonasi: server token bermadi — host qabul qilishini kutamiz
+  /// (klient shu so'rovni har ~3 s takrorlaydi).
+  final bool waiting;
+  final int? participantId;
+
   factory JoinInfo.fromJson(Map<String, dynamic> j) => JoinInfo(
         roomName: (j['room'] ?? j['room_name'] ?? '').toString(),
         livekitToken: (j['token'] ?? j['livekit_token'] ?? '').toString(),
@@ -191,6 +207,10 @@ class JoinInfo {
         isHost: j['is_host'] == true,
         canPublish: j['can_publish'] == null ? true : j['can_publish'] == true,
         hostIdentity: j['host_identity'] as String?,
+        waiting: j['waiting'] == true,
+        participantId: j['participant_id'] is num
+            ? (j['participant_id'] as num).toInt()
+            : null,
       );
 }
 
@@ -447,24 +467,34 @@ class MeetingRepository {
     return res.data ?? const [];
   }
 
-  /// POST /meetings/{id}/join → join info (TZ §9). Then POST /rtc/token if the
-  /// join payload didn't already include a LiveKit token.
-  Future<JoinInfo> join(String meetingId, {String? guestName}) async {
+  /// POST /meetings/{id}/join → join info (TZ §9).
+  ///
+  /// The result is either a LiveKit token or `waiting == true` (waiting room:
+  /// repeat the same call every ~3 s). Errors surface as DioException:
+  /// 403 wrong/missing password or denied by the host, 429 too many wrong
+  /// passwords, 423 locked, 410 ended.
+  Future<JoinInfo> join(
+    String meetingId, {
+    String? guestName,
+    String? password,
+    bool? cam,
+    bool? mic,
+  }) async {
     final res = await _dio.post<Map<String, dynamic>>(
       '/meetings/$meetingId/join',
-      data: {if (guestName != null) 'guest_name': guestName},
+      data: {
+        if (guestName != null) 'guest_name': guestName,
+        if (password != null && password.isNotEmpty) 'password': password,
+        if (cam != null) 'cam': cam,
+        if (mic != null) 'mic': mic,
+      },
     );
-    var info = JoinInfo.fromJson(res.data ?? {});
-    if (info.livekitToken.isEmpty) {
-      final tok = await _dio.post<Map<String, dynamic>>('/rtc/token', data: {
-        'meeting_id': meetingId,
-      });
-      info = JoinInfo.fromJson({
-        'room': tok.data?['room'] ?? meetingId,
-        'token': tok.data?['token'] ?? '',
-        'livekit_url': tok.data?['livekit_url'],
-      });
-    }
-    return info;
+    return JoinInfo.fromJson(res.data ?? {});
+  }
+
+  /// POST /meetings/{id}/leave → marks my participant row as left
+  /// (attendance minutes + plan capacity). Best-effort for the caller.
+  Future<void> leave(String id) async {
+    await _dio.post<dynamic>('/meetings/$id/leave');
   }
 }

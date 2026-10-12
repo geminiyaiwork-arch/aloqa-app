@@ -18,12 +18,14 @@ enum AuthStatus { unknown, authenticated, unauthenticated }
 
 /// `google_sign_in` has no Linux/Windows implementation — on those platforms
 /// the Google button is hidden instead of always failing.
+///
+/// iOS and macOS are hidden too until their OAuth client is configured
+/// (GIDClientID + reversed-client-id URL scheme in Info.plist): without it the
+/// native SDK raises "No active configuration" and the app terminates on tap.
 bool get googleSignInAvailable {
   if (kIsWeb) return true;
   switch (defaultTargetPlatform) {
     case TargetPlatform.android:
-    case TargetPlatform.iOS:
-    case TargetPlatform.macOS:
       return true;
     default:
       return false;

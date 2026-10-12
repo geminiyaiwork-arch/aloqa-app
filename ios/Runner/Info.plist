@@ -49,6 +49,14 @@
 		<string>ALOQA video qo'ng'iroqlarda kamerangizdan foydalanadi.</string>
 		<key>NSMicrophoneUsageDescription</key>
 		<string>ALOQA audio/video qo'ng'iroqlarda mikrofoningizdan foydalanadi.</string>
+		<key>NSPhotoLibraryUsageDescription</key>
+		<string>ALOQA profil va hodim rasmini tanlash uchun rasmlaringizga murojaat qiladi.</string>
+		<key>ITSAppUsesNonExemptEncryption</key>
+		<false/>
+		<key>UIBackgroundModes</key>
+		<array>
+			<string>audio</string>
+		</array>
 		<key>NSContactsUsageDescription</key>
 		<string>Konferensiyada tanishlaringiz siz saqlagan nom bilan ko'rinishi uchun ALOQA kontaktlaringizni o'qiydi.</string>
 		<key>UIStatusBarHidden</key>
